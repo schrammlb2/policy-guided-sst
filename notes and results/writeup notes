@@ -1,0 +1,84 @@
+Intro
+	Motivation
+
+		RL works well in many situations, but it often struggles in situations with long time horizons 
+Problem 
+	Optimal Kinodynamic path planning
+		Given: 
+			Initial state
+			Set of goal states
+			Dynamics for the system 
+			Cost function
+		Find: 
+			Sequence of controls that reaches a goal state, while minimizing cost
+
+		Examples: 
+			Move a car from its initial position to a terminal location on a map
+			Have a robot grasp an object and put it in a target location
+
+
+	For the current discussion, we will only consider algorithms that do not require a steering function, as most of the problems we are interested in discussing do not have one. 
+	Critically, our work shows that even weak or poorly trained policies offer significant improvement to the convergence rate. This means that we can use a planner to turn weak RL agents into strong ones.
+
+Existing solutions
+	SST, or other sampling based motion planners
+		General outline is as follows
+			sample random node in tree to expand
+			Sample random control to use
+			Expand node using control 
+			If new path obsoletes an old path, remove old path
+
+		Specific SST 
+			Sample point
+			If nearby multiple points, select point with lowest cost in radius delta
+			Run random control for random time interval
+			If no witness nodes in radius (delta_c):
+				new witness node
+				add to tree
+			If witness node in radius (delta_c):
+				if lower cost than previous witness
+					New node becomes new witness
+					Add node to tree
+				else: continue
+
+		SST 
+			pros
+				Linear time in length of path
+				Guaranteed to find near-optimal path
+				More reliable than RL 
+			cons
+				Time is exponential in the number of dimensions
+
+
+	Reinforcement learning
+		Pros 
+			Scales well to high dimensions
+			Agent is fast once trained 
+
+		Cons 
+			Usually not guaranteed to converge (at least when using function approximation)
+			Often don't converge to optimal solutions on difficult problems
+			Scale poorly to long time horizons
+
+
+	RL-RRT 
+		Tried to reconcile above problems with sampling-based planners by biasing planner towards collision-free paths that end in reachable locations
+		Focused on problems that emphasize navigation and obstacle avoidance
+			Did not attempt to test their method on any problems in higher than 2 dimensions
+			In this work, we are instead more interested in extending sampling-based planning methods to high-dimensional problems such as grasping. 
+
+
+	Method
+		Observe the big O of SST 
+			O(delta^(-d) k / (gamma rho))
+			delta^(-d) is exponential in the number of dimensionns
+			gamma is the probability of selecting a node on the near-optimal path
+				exponential in the number of dimensions
+			rho is the probability of reaching the next covering ball in a near-optimal path
+				exponential in the dimensionality of the action space
+
+		We present two methods for improving the large coefficient of SST
+			1) prior over actions, based on a trained RL agent
+			2) Gradient descent on sample points
+
+
