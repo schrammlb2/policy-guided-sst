@@ -557,6 +557,11 @@ class Policy_Guided_RL_SST(StableSparseRRT):
             assert False
             # controlSelector = RandomControlSelector(controlSpace,self.metric,1)
         return controlSelector
+        
+    def getProblemConfigurationSampler(self, controlSpace):
+        print("Using gradient descent configuration space sampler")
+        configurationSampler = Sampler(self.controlSpace.configuration_sampler)
+        return configurationSampler
 
 class Gradient_Descent_SST(StableSparseRRT):
     def getProblemConfigurationSampler(self, controlSpace):

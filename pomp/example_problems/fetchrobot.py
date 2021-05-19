@@ -61,9 +61,11 @@ use_value_function = True
 # p_random = 0
 # p_random = .5
 # p_goal = 1
+# p_random = .4
+# p_goal = .2
 p_random = .3
 p_goal = .4
-mean_GD_steps = 10
+mean_GD_steps = 100#10
 epsilon = 1/(1+mean_GD_steps)
 # agent_loc = "saved_models/her_mod_"
 agent_loc = "saved_models/her_"
@@ -88,6 +90,8 @@ def state_to_goal(self, state):
     obs = self._get_obs()
     return obs['achieved_goal']
 
+
+
 class FetchRobot: 
     def setup(self):
         obs = self.env.reset()
@@ -95,6 +99,12 @@ class FetchRobot:
         self.goal = obs['desired_goal'].tolist()
         setattr(self.env, 'set_state', set_state)
         self.control_space = GymWrapperGoalConditionedControlSpace(self.env, self.goal)
+        # def state_to_goal(state):
+        #     env.sim.set_state_from_flattened(np.array(state))
+        #     env.sim.forward()
+        #     obs = env._get_obs()
+        #     return obs['achieved_goal']
+        # setattr(self.control_space.configurationSpace, 'state_to_goal', state_to_goal)
 
     def controlSpace(self):
         return self.control_space
@@ -118,13 +128,13 @@ class FetchRobot:
         if use_agent: 
             agent = DDPGAgentWrapper(agent_loc + agent_name + goal_suffix, goal_conditioned=True)
             p2p_agent = DDPGAgentWrapper(agent_loc + agent_name + p2p_suffix, goal_conditioned=True)
-            def make_control_selector(controlSpace,metric,numSamples):
-                return RLAgentControlSelector(controlSpace,metric,numSamples, rl_agent = agent, p2p_agent=p2p_agent,
-                    p_goal = p_goal, p_random=p_random, goal=self.goal)
+            # def make_control_selector(controlSpace,metric,numSamples):
+            #     return RLAgentControlSelector(controlSpace,metric,numSamples, rl_agent = agent, p2p_agent=p2p_agent,
+            #         p_goal = p_goal, p_random=p_random, goal=self.goal)
 
-            def p2p_make_control_selector(controlSpace,metric,numSamples):
-                return RLAgentControlSelector(controlSpace,metric,numSamples, rl_agent = agent, p2p_agent=p2p_agent,
-                    p_goal = 0, p_random=0, goal=self.goal)
+            # def p2p_make_control_selector(controlSpace,metric,numSamples):
+            #     return RLAgentControlSelector(controlSpace,metric,numSamples, rl_agent = agent, p2p_agent=p2p_agent,
+            #         p_goal = 0, p_random=0, goal=self.goal)
 
             def control_selector_maker(p_goal, p_random):
                 rv = lambda controlSpace,metric,numSamples: RLAgentControlSelector(controlSpace,metric,numSamples, 
@@ -155,6 +165,7 @@ class FetchRobot:
             with open(goal_filename, 'rb') as f:
                 goal_value = pickle.load(f)
             p2p_filename = agent_loc + value_function_name + value_function_infix + p2p_suffix
+            # p2p_filename = agent_loc + value_function_name + heuristic_infix + p2p_suffix
             with open(p2p_filename, 'rb') as f:
                 p2p_value = pickle.load(f)
 

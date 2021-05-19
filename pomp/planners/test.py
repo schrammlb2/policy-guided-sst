@@ -92,6 +92,7 @@ def recordIters(problem,numTrials,maxTime,filename, plannerType, **plannerParams
     hadException = False
     # while time.time()-t0 < maxTime:
     while time.time()-t0 < maxTime and curCost == float('inf'):
+    # for i in range(50):
         planner.planMore(100)
         iters += 100
         f.write(str(trial)+","+str(iters)+","+str(t1-t0)+'\n')
@@ -345,32 +346,47 @@ def record_manual(problem,numTrials,maxTime,filename, plannerType, problemName, 
             for control in mini_control_seq: 
                 control_sequence.append(np.array(control))
 
+        
         import pdb
+        # pdb.set_trace()
         obs2 = initial_state.tolist()
         epsilon = .01
         reward = controlSpace.goal_contains(obs2)
-        env.render()
-        # pdb.set_trace()
+        # env.render()
 
         i=0
         file_loc = './demos/' + problemName + '_' + plannerType + '/'
         screenshot = pyautogui.screenshot()
-        screenshot.save(file_loc + str(i) + '.png')
+        # screenshot.save(file_loc + str(i) + '.png')
 
+        point_path = [obs2]
         for control in control_sequence: 
             i+=1
             # time.sleep(.5)
             obs1, reward, done, info = env.step(control)
-            env.render()
+            point_path.append(obs1['observation'].tolist())
+            # env.render()
             # pdb.set_trace()
             # time.sleep(.5)
             screenshot = pyautogui.screenshot()
-            screenshot.save(file_loc + str(i) + '.png')
+            # screenshot.save(file_loc + str(i) + '.png')
             print(reward)
 
+        n = 1000
+        n_gd_samples = [controlSpace.configuration_sampler.sample() for _ in range(n)]
+        n_no_gd_samples = [controlSpace.configuration_sampler.configurationSpace.sample() for _ in range(n)]
+        dist = lambda x, y: ((x-y)**2).sum()**.5
+        # gd_dists = [ min([dist(np.array(samp), np.array(point)) for point in point_path]) for samp in n_gd_samples]
+        # no_gd_dists = [ min([dist(np.array(samp), np.array(point)) for point in point_path]) for samp in n_no_gd_samples]
+        gd_dists = [ dist(np.array(samp), np.array(point_path[-1])) for samp in n_gd_samples]
+        no_gd_dists = [ dist(np.array(samp), np.array(point_path[-1])) for samp in n_no_gd_samples]
+        gd_mean = sum(gd_dists)/n
+        no_gd_mean = sum(no_gd_dists)/n
         # recorder.close()
         # recorder.enabled = False
-        pdb.set_trace()
+        # pdb.set_trace()
+        print("gd_mean: " + str(gd_mean))
+        print("no_gd_mean: " + str(no_gd_mean))
         env.close()
 
         f.write(str(trial)+","+str(iters)+","+str(maxTime)+","+str(curCost)+'\n')

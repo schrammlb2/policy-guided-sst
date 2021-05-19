@@ -14,9 +14,9 @@ from collections import OrderedDict
 from train_distance_function import *
 
 infty = float('inf')
-control_duration = 25
+control_duration = 5
 constant_extension_chance = 0
-constant_extension_chance = .25
+# constant_extension_chance = .25
 
 class GymWrapperControlSpace(ControlSpace):
     def __init__(self, env):
@@ -194,24 +194,39 @@ class GDValueSampler(ConfigurationSpace):
         self.start_state = start_state
         self.goal = goal
         self.epsilon = epsilon
+        self.total = 0
+        self.n = 1
 
     def sample(self) -> list:
         k = np.random.geometric(self.epsilon) - 1
         s = torch.tensor(self.configurationSpace.sample(), dtype=torch.float32, requires_grad=True)
+        s0 = s.detach()
         r = ((torch.tensor(self.start_state) - s)**2).sum()**.5
         opt = torch.optim.SGD([s], lr=.1)
+        # opt = torch.optim.Adam([s], lr=.2)
         goal_tensor = torch.tensor(self.goal, dtype=torch.float32)
         start_tensor = torch.tensor(self.start_state, dtype=torch.float32)
+        with torch.no_grad(): 
+            # l0 = - self.p2p_value(start_tensor, s)#-self.goal_value(s, goal_tensor) 
+            l0 = -self.goal_value(s0, goal_tensor) 
+
         for i in range(k):
             opt.zero_grad()
-            # loss = -self.goal_value(s, goal_tensor) - self.p2p_value(start_tensor, s)
-            loss = -(self.goal_value(s, goal_tensor) + self.p2p_value(start_tensor, s))
+            loss = -self.goal_value(s, goal_tensor)# - self.p2p_value(start_tensor, s)
+            # loss = (self.goal_value(s, goal_tensor) + self.p2p_value(start_tensor, s))
             loss.backward()
             opt.step()
 
-            changed_r = ((torch.tensor(self.start_state) - s)**2).sum()**.5
-            s_projection = start_tensor - (r/changed_r.detach())*(start_tensor - s)
-            s.data = s_projection.data
+            # changed_r = ((torch.tensor(self.start_state) - s)**2).sum()**.5
+            # s_projection = start_tensor - (r/changed_r.detach())*(start_tensor - s)
+            # s.data = s_projection.data
+
+        if k > 10: 
+            l1 = -self.goal_value(s, goal_tensor) 
+            # l1 = -self.p2p_value(start_tensor, s)
+            self.total += (l0 - l1).sum()/k
+            self.n += 1
+            print(self.total/self.n)
 
         return s.detach().numpy().tolist()
 
@@ -220,14 +235,16 @@ class GDValueSampler(ConfigurationSpace):
     #     s = torch.tensor(self.configurationSpace.sample(), dtype=torch.float32, requires_grad=True)
     #     # opt = torch.optim.SGD([s], lr=.1)
     #     opt = torch.optim.Adam([s], lr=.1)
-    #     constraint_constant = 10
+    #     constraint_constant = 30
     #     goal_tensor = torch.tensor(self.goal, dtype=torch.float32)
     #     start_tensor = torch.tensor(self.start_state, dtype=torch.float32)
-    #     with torch.no_grad: 
+
+    #     with torch.no_grad(): 
     #         g = self.goal_value(s, goal_tensor)
     #         p2p = self.p2p_value(start_tensor, s)
     #         total = g + p2p
     #         r = g/total
+
     #     for i in range(k):
     #         opt.zero_grad()
     #         # loss = -self.goal_value(s, goal_tensor) - self.p2p_value(start_tensor, s)
@@ -245,6 +262,71 @@ class GDValueSampler(ConfigurationSpace):
         return self.configurationSpace.contains(x)
 
 
+
+class GDValueSampler(ConfigurationSpace):
+    def __init__(self, configurationSpace, goal_value, p2p_value, start_state, goal, epsilon=.5):
+        self.configurationSpace = configurationSpace
+        self.goal_value = goal_value
+        self.p2p_value = p2p_value
+        self.start_state = start_state
+        self.goal = goal
+        self.epsilon = epsilon
+        self.pre_total = 0
+        self.post_total = 0
+        self.n = 1
+
+        from pomp.example_problems.robotics.fetch.reach import FetchReachEnv
+        self.env = FetchReachEnv()
+
+    def sample(self) -> list:
+        k = np.random.geometric(self.epsilon) - 1
+        s = torch.tensor(self.configurationSpace.sample(), dtype=torch.float32, requires_grad=True)
+        s0 = s.detach()
+        r = ((torch.tensor(self.start_state) - s)**2).sum()**.5
+        opt = torch.optim.SGD([s], lr=.1)
+        # opt = torch.optim.Adam([s], lr=.2)
+        goal_tensor = torch.tensor(self.goal, dtype=torch.float32)
+        start_tensor = torch.tensor(self.start_state, dtype=torch.float32)
+        with torch.no_grad(): 
+            l0 = -self.goal_value(s, goal_tensor) #- self.p2p_value(start_tensor, s)
+
+        for i in range(k):
+            opt.zero_grad()
+            loss = -self.goal_value(s, goal_tensor) - self.p2p_value(start_tensor, s)
+            # loss = -self.goal_value(s, goal_tensor)#*0
+            # loss = (self.goal_value(s, goal_tensor) + self.p2p_value(start_tensor, s))
+            loss.backward()
+            opt.step()
+
+            changed_r = ((torch.tensor(self.start_state) - s)**2).sum()**.5
+            s_projection = start_tensor - (r/changed_r.detach())*(start_tensor - s)
+            s.data = s_projection.data
+
+
+        def state_to_goal(state):
+            self.env.sim.set_state_from_flattened(np.array(state.detach()))
+            self.env.sim.forward()
+            obs = self.env._get_obs()
+            return obs['achieved_goal']
+
+        if k > 50: 
+            # pregoal = state_to_goal(s0)
+            # postgoal = state_to_goal(s)
+            # self.pre_total += ((pregoal - self.goal)**2).sum()**.5
+            # self.post_total += ((postgoal - self.goal)**2).sum()**.5
+            # pregoal = state_to_goal(s0)
+            # postgoal = state_to_goal(s)
+            l1 = -self.goal_value(s, goal_tensor)
+            self.pre_total += l0.detach()
+            self.post_total += l1.detach()
+            # l1 = -self.goal_value(s, goal_tensor)
+            # self.total += (l0 - l1).sum()/k
+            self.n += 1
+            # print(self.total/self.n)
+            # print("Pre: " + str(self.pre_total/self.n) + ", Post: " + str(self.post_total/self.n))
+            # print(self.total/self.n)
+
+        return s.detach().numpy().tolist()
 
 
 
@@ -356,10 +438,11 @@ class RLAgentControlSelector(ControlSelector):
             return sequence
             # return [duration] + action
         else: 
+            duration = duration//3 + 1
             state = x
             env = self.controlSpace.env
             env.set_state(env, np.array(x))
-            if random.random() < self.constant_extension_chance: 
+            if random.random() < self.constant_extension_chance: #.7:
                 action = self.p2p_agent.sample(state, xdesired)
                 return [action]*duration
             else:

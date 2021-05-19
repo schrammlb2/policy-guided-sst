@@ -116,7 +116,7 @@ class actor(nn.Module):
         # concatenate the stuffs
         inputs = torch.cat([obs_norm, g_norm])
         inputs = inputs.unsqueeze(0)
-        return self.forward(inputs, deterministic=deterministic, forced_exploration=1)
+        return self.forward(inputs, deterministic=deterministic, forced_exploration=3)
 
 
 

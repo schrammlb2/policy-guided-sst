@@ -20,7 +20,7 @@ import copy
 import sys
 import os,errno
 
-numTrials = 20
+numTrials = 1
 
 def mkdir_p(path):
     """Quiet path making"""
@@ -77,7 +77,9 @@ all_problems = {#'Kink':geometric.kinkTest(),
 
 # fetchrobotWitnessRadius = 0.0025#.01
 fetchrobotWitnessRadius = .1#01
+# fetchrobotWitnessRadius = .5#01
 fetchSelectionRadius = 2*fetchrobotWitnessRadius
+fetch_reach_time = 120
 fetch_time = 600
 # fetch_time = 30
 
@@ -91,7 +93,7 @@ customParameters = {'Kink':{'maxTime':40,'nextStateSamplingRange':0.15},
                     # 'GymPendulum':{'maxTime':7200},#,'selectionRadius':.03, 'witnessRadius':.01}, 
                     # 'GymMomentum':{'maxTime':30},#'selectionRadius':0.3,'witnessRadius':0.3},
                     'GymMomentum':{'maxTime':30,'selectionRadius':0.25,'witnessRadius':0.1},
-                    'FetchReach':{'maxTime':120,'witnessRadius':fetchrobotWitnessRadius,'selectionRadius':fetchSelectionRadius},
+                    'FetchReach':{'maxTime':fetch_reach_time,'witnessRadius':fetchrobotWitnessRadius,'selectionRadius':fetchSelectionRadius},
                     'FetchPush':{'maxTime':fetch_time},#,'witnessRadius':fetchrobotWitnessRadius,'selectionRadius':fetchSelectionRadius},
                     'FetchSlide':{'maxTime':fetch_time,'witnessRadius':fetchrobotWitnessRadius,'selectionRadius':fetchSelectionRadius},
                     'FetchPickAndPlace':{'maxTime':fetch_time,'witnessRadius':fetchrobotWitnessRadius,'selectionRadius':fetchSelectionRadius},
