@@ -292,15 +292,15 @@ class GDValueSampler(ConfigurationSpace):
 
         for i in range(k):
             opt.zero_grad()
-            loss = -self.goal_value(s, goal_tensor) - self.p2p_value(start_tensor, s)
-            # loss = -self.goal_value(s, goal_tensor)#*0
+            # loss = -self.goal_value(s, goal_tensor) - self.p2p_value(start_tensor, s)
+            loss = -self.goal_value(s, goal_tensor)#*0
             # loss = (self.goal_value(s, goal_tensor) + self.p2p_value(start_tensor, s))
             loss.backward()
             opt.step()
 
-            changed_r = ((torch.tensor(self.start_state) - s)**2).sum()**.5
-            s_projection = start_tensor - (r/changed_r.detach())*(start_tensor - s)
-            s.data = s_projection.data
+            # changed_r = ((torch.tensor(self.start_state) - s)**2).sum()**.5
+            # s_projection = start_tensor - (r/changed_r.detach())*(start_tensor - s)
+            # s.data = s_projection.data
 
 
         def state_to_goal(state):
@@ -323,7 +323,7 @@ class GDValueSampler(ConfigurationSpace):
             # self.total += (l0 - l1).sum()/k
             self.n += 1
             # print(self.total/self.n)
-            # print("Pre: " + str(self.pre_total/self.n) + ", Post: " + str(self.post_total/self.n))
+            print("Pre: " + str(self.pre_total/self.n) + ", Post: " + str(self.post_total/self.n))
             # print(self.total/self.n)
 
         return s.detach().numpy().tolist()

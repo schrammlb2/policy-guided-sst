@@ -43,11 +43,11 @@ def testPlannerDefault(problem,problemName,maxTime,plannerType,**plannerParams):
         # test.testPlanner(planner,numTrials,maxTime,os.path.join(folder,allplanners.filename[plannerType]+'.csv'))
 
     #Variants
-    test.testPlanner(problem,numTrials,maxTime,os.path.join(folder,allplanners.filename[plannerType]+'.csv'), plannerType, **plannerParams)
+    # test.testPlanner(problem,numTrials,maxTime,os.path.join(folder,allplanners.filename[plannerType]+'.csv'), plannerType, **plannerParams)
     # test.recordIters(problem,numTrials,maxTime,os.path.join(folder,allplanners.filename[plannerType]+'.csv'), plannerType, **plannerParams)
     # test.record_monitor(problem,numTrials,maxTime,os.path.join(folder,allplanners.filename[plannerType]+'.csv'), plannerType, problemName,  **plannerParams)
     # test.record_video_recorder(problem,numTrials,maxTime,os.path.join(folder,allplanners.filename[plannerType]+'.csv'), plannerType, problemName,  **plannerParams)
-    # test.record_manual(problem,numTrials,maxTime,os.path.join(folder,allplanners.filename[plannerType]+'.csv'), plannerType, problemName,  **plannerParams)
+    test.record_manual(problem,numTrials,maxTime,os.path.join(folder,allplanners.filename[plannerType]+'.csv'), plannerType, problemName,  **plannerParams)
 
 
 # all_planners = ['ao-est','ao-rrt','r-est','r-est-prune','r-rrt','r-rrt-prune','rrt*','anytime-rrt','stable-sparse-rrt', 
