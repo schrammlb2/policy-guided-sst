@@ -116,9 +116,9 @@ class ddpg_agent:
                 self._soft_update_target_network(self.actor_target_network, self.actor_network)
                 self._soft_update_target_network(self.critic_target_network, self.critic_network)
             # start to do the evaluation
-            success_rate = self._eval_agent()
+            success_rate, ave_reward = self._eval_agent()
             if MPI.COMM_WORLD.Get_rank() == 0:
-                print('[{}] epoch is: {}, eval success rate is: {:.3f}'.format(datetime.now(), epoch, success_rate))
+                print('[{}] epoch is: {}, eval success rate is: {:.3f}, average reward is {:.3f}'.format(datetime.now(), epoch, success_rate, ave_reward))
                 torch.save([self.o_norm.mean, self.o_norm.std, self.g_norm.mean, self.g_norm.std, self.actor_network.state_dict()], \
                             self.model_path + '/model.pt')
 
@@ -241,34 +241,80 @@ class ddpg_agent:
         self.critic_optim.step()
 
     # do the evaluation
-    def _eval_agent(self):
+    # def _eval_agent(self):
+    #     total_success_rate = []
+    #     for _ in range(self.args.n_test_rollouts):
+    #         per_success_rate = []
+    #         observation = self.env.reset()
+    #         obs = observation['observation']
+    #         g = observation['desired_goal']
+    #         total_r = 0
+    #         for _ in range(self.env_params['max_timesteps']):
+    #             with torch.no_grad():
+    #                 pi = self.actor_network.normed_forward(obs, g, deterministic=True)
+    #                 # input_tensor = self._preproc_inputs(obs, g)
+    #                 # pi = self.actor_network(input_tensor, deterministic=True)
+    #                 # convert the actions
+    #                 # import pdb
+    #                 # pdb.set_trace()
+    #                 # actions = pi.detach().cpu().numpy().squeeze()
+    #                 actions = pi.detach().cpu().numpy().squeeze(axis=0)
+    #             observation_new, r, _, info = self.env.step(actions)
+    #             total_r += r
+    #             obs = observation_new['observation']
+    #             g = observation_new['desired_goal']
+    #             per_success_rate.append(info['is_success'])
+    #         # total_success_rate.append(per_success_rate)
+    #         total_success_rate.append(total_r)
+    #     total_success_rate = np.array(total_success_rate)
+    #     # local_success_rate = np.mean(total_success_rate[:, -1])
+    #     local_success_rate = np.mean(total_success_rate)
+    #     global_success_rate = MPI.COMM_WORLD.allreduce(local_success_rate, op=MPI.SUM)
+    #     return global_success_rate / MPI.COMM_WORLD.Get_size()
+
+
+    def _eval_agent(self, verbose=False):
         total_success_rate = []
-        for _ in range(self.args.n_test_rollouts):
-            per_success_rate = []
+        total_reward = []
+        run_num = self.args.n_test_rollouts
+        if verbose: 
+            run_num = 1
+        for _ in range(run_num):
+            total_r = 0
+            # per_success_rate = []
+            success = 0
             observation = self.env.reset()
+
             obs = observation['observation']
             g = observation['desired_goal']
-            total_r = 0
             for _ in range(self.env_params['max_timesteps']):
                 with torch.no_grad():
-                    pi = self.actor_network.normed_forward(obs, g, deterministic=True)
-                    # input_tensor = self._preproc_inputs(obs, g)
-                    # pi = self.actor_network(input_tensor, deterministic=True)
+                    input_tensor = self._preproc_inputs(obs, g)
+                    pi = self.actor_network(input_tensor)
                     # convert the actions
-                    # import pdb
-                    # pdb.set_trace()
-                    # actions = pi.detach().cpu().numpy().squeeze()
                     actions = pi.detach().cpu().numpy().squeeze(axis=0)
-                observation_new, r, _, info = self.env.step(actions)
+                observation_new, r, done, info = self.env.step(actions)
                 total_r += r
+                if verbose: 
+                    print(observation_new)
                 obs = observation_new['observation']
                 g = observation_new['desired_goal']
-                per_success_rate.append(info['is_success'])
+                # per_success_rate.append(info['is_success'])
+                success = info['is_success']
+                if done: 
+                    break
+
+
             # total_success_rate.append(per_success_rate)
-            total_success_rate.append(total_r)
+            total_success_rate.append(success)
+            total_reward.append(total_r)
+        # import pdb
+        # pdb.set_trace()
         total_success_rate = np.array(total_success_rate)
+        total_reward = np.array(total_reward)
         # local_success_rate = np.mean(total_success_rate[:, -1])
         local_success_rate = np.mean(total_success_rate)
+        local_reward = np.mean(total_reward)
         global_success_rate = MPI.COMM_WORLD.allreduce(local_success_rate, op=MPI.SUM)
-        return global_success_rate / MPI.COMM_WORLD.Get_size()
-
+        global_reward = MPI.COMM_WORLD.allreduce(local_reward, op=MPI.SUM)
+        return global_success_rate / MPI.COMM_WORLD.Get_size(), global_reward / MPI.COMM_WORLD.Get_size()

@@ -15,6 +15,7 @@ from HER_mod.rl_modules.value_map import *
 from HER_mod.rl_modules.hooks import *
 from HER_mod.rl_modules.tsp import *
 from HER_mod.rl_modules.get_path_costs import get_path_costs, get_random_search_costs, method_comparison
+from HER_mod.rl_modules.models import StateValueEstimator
 
 from pomp.planners.plantogym import PlanningEnvGymWrapper, KinomaticGymWrapper
 from pomp.example_problems.doubleintegrator import doubleIntegratorTest
@@ -56,7 +57,7 @@ def launch(args, time=True, hooks=[], vel_goal=False, seed=True):
     #     env = gym.make(args.env_name)
 
     if args.env_name == "MultiGoalEnvironment":
-        env = MultiGoalEnvironment("MultiGoalEnvironment", time=True, vel_goal=False)
+        env = MultiGoalEnvironment("MultiGoalEnvironment", time=True, vel_goal=vel_goal)
     elif "Car" in args.env_name:
         env = CarEnvironment("CarEnvironment", time=True, vel_goal=False)
         # env = TimeLimit(CarEnvironment("CarEnvironment", time=True, vel_goal=False), max_episode_steps=50)
@@ -160,12 +161,48 @@ if __name__ == '__main__':
     agent, run_times = launch(args, time=True, hooks=[], vel_goal=False, seed=False)
     # agent, run_times = launch(args, time=True, hooks=hook_list, vel_goal=True, seed=False)
 
-    with open("saved_models/her_mod_" + args.env_name + ".pkl", 'wb') as f:
-        pickle.dump(agent.actor_network, f)
-        print("Saved models")
+    # with open("saved_models/her_mod_" + args.env_name + ".pkl", 'wb') as f:
+    #     pickle.dump(agent.actor_network, f)
+    #     print("Saved models")
     # plot_cost_by_vel_goal(agent, last_static=True)
     # plot_cost_by_vel_goal(agent, last_static=False)
     # plot_gradient_vector_field(agent)
     # method_comparison(train_pos_agent, train_vel_agent)
     # get_random_search_costs(train_vel_agent, perm_search=False)
     # get_path_costs(train_pos_agent, train_vel_agent, perm_search=False)
+    # if args.p2p: 
+    #     from HER.rl_modules.p2p_agent import ddpg_agent
+    #     suffix = "_p2p"
+    # else: 
+    #     from HER.rl_modules.sac_agent import ddpg_agent
+    suffix = ""
+
+    # agent = launch(args)
+    policy_file = "saved_models/her_" + args.env_name + suffix + ".pkl"
+    with open(policy_file, 'wb') as f:
+        pickle.dump(agent.actor_network, f)
+        print("Saved agent to " + policy_file)
+
+    value_estimator = StateValueEstimator(agent.actor_network, agent.critic.critic_1, args.gamma)
+
+    critic_file = "saved_models/her_" + args.env_name + "_value" + suffix + ".pkl"
+    with open(critic_file, 'wb') as f:
+        pickle.dump(value_estimator, f)
+        print("Saved value estimator to " + critic_file)
+
+
+    suffix = "_p2p"
+    agent, run_times = launch(args, time=True, hooks=hook_list, vel_goal=True, seed=False)
+    # agent, run_times = launch(args)
+    policy_file = "saved_models/her_" + args.env_name + suffix + ".pkl"
+    with open(policy_file, 'wb') as f:
+        pickle.dump(agent.actor_network, f)
+        print("Saved agent to " + policy_file)
+
+    value_estimator = StateValueEstimator(agent.actor_network, agent.critic.critic_1, args.gamma)
+
+    critic_file = "saved_models/her_" + args.env_name + "_value" + suffix + ".pkl"
+    with open(critic_file, 'wb') as f:
+        pickle.dump(value_estimator, f)
+        print("Saved value estimator to " + critic_file)
+

@@ -4,6 +4,7 @@ from ..spaces.objectives import TimeObjectiveFunction, TimeLengthObjectiveFuncti
 # from ..spaces.controlspace import LambdaKinodynamicSpace, GymWrapperControlSpace
 # from ..spaces.configurationspace import MultiConfigurationSpace, BoxConfigurationSpace
 from ..spaces.gymwrappers import GymWrapperGoalConditionedControlSpace, RLAgentControlSelector, DDPGAgentWrapper
+from ..spaces.gymwrappers import HeuristicWrapper, GDValueSampler
 from ..spaces.sets import *#
 # from ..spaces.configurationspace import *
 # from ..spaces.so2space import SO2Space, so2
@@ -13,7 +14,7 @@ from ..planners.problem import PlanningProblem
 # from ..HER_mod.rl_modules.velocity_env import *
 from HER_mod.rl_modules.velocity_env import *
 import math
-
+import pickle
 
 """
 Left to implement: 
@@ -44,6 +45,8 @@ Tentative approach
 """
 
 
+mean_GD_steps = 10#10
+epsilon = 1/(1+mean_GD_steps)
 
 # def pendulum_set_state(self, state):
 #     theta = math.asin(state[1])
@@ -59,17 +62,36 @@ def set_state(self, state):
 class Momentum: 
     def __init__(self):
         self.env = MultiGoalEnvironment("MultiGoalEnvironment", vel_goal=True, time=True)
-        # self.env = MultiGoalEnvironment("MultiGoalEnvironment", vel_goal=False, time=True)
-        self.env.reset()
+        self.env = MultiGoalEnvironment("MultiGoalEnvironment", vel_goal=False, time=True)
+        obs = self.env.reset()
         setattr(self.env, 'set_state', set_state)
-        goal = [0,0,-.9,-.9]
+        # goal = [0,0,-.9,-.9]
+        goal = [0,0]
+        # goal = self.env.goal.tolist()
         self.control_space = GymWrapperGoalConditionedControlSpace(self.env, goal)
 
-        agent = DDPGAgentWrapper("saved_models/her_mod_MultiGoalEnvironment.pkl", goal_conditioned=True)
+        agent = DDPGAgentWrapper("saved_models/her_MultiGoalEnvironment.pkl", goal_conditioned=True)
+        p2p_agent = DDPGAgentWrapper("saved_models/her_MultiGoalEnvironment_p2p.pkl", goal_conditioned=True)
         def make_control_selector(controlSpace,metric,numSamples):
-            return RLAgentControlSelector(controlSpace,metric,numSamples, rl_agent = agent, p_goal = .5, p_random=.2, goal=goal)
-            # return RLAgentControlSelector(controlSpace,metric,numSamples, rl_agent = agent, p_goal = 0, p_random=1, goal=goal)
-        # self.control_space.controlSelector = make_control_selector
+            # return RLAgentControlSelector(controlSpace,metric,numSamples, rl_agent = agent, p_goal = .5, p_random=.5, goal=goal)
+            # return RLAgentControlSelector(controlSpace,metric,numSamples, rl_agent = agent, p_goal =1, p_random=.05, goal=goal)
+            return RLAgentControlSelector(controlSpace,metric,numSamples, rl_agent = agent, p2p_agent = p2p_agent,
+                p_goal = 0, p_random=0, goal=goal)
+        self.control_space.controlSelector = make_control_selector
+
+
+        cs = self.configurationSpace()
+        goal_filename = "saved_models/her_MultiGoalEnvironment_value.pkl"
+        with open(goal_filename, 'rb') as f:
+            goal_value = pickle.load(f)
+        p2p_filename = "saved_models/her_MultiGoalEnvironment_value_p2p.pkl"
+        with open(p2p_filename, 'rb') as f:
+            p2p_value = pickle.load(f)
+
+        start_state = obs['observation'].tolist()
+        gd_sampler = GDValueSampler(cs, goal_value, p2p_value, start_state, goal, epsilon=epsilon)
+        # gd_sampler = GDValueSampler(cs, goal_value, None, start_state, goal, epsilon=epsilon)
+        self.control_space.configuration_sampler = gd_sampler
 
     def controlSpace(self):
         return self.control_space

@@ -19,6 +19,7 @@ def testPlanner(problem,numTrials,maxTime,filename, plannerType, **plannerParams
     f = open(filename,'w')
     f.write("trial,plan iters,plan time,best cost\n")
     successes = 0
+    total_cost = 0
     for trial in range(numTrials):
         print()
         print("Trial",trial+1)# 
@@ -29,8 +30,8 @@ def testPlanner(problem,numTrials,maxTime,filename, plannerType, **plannerParams
         numupdates = 0
         iters = 0
         hadException = False
-        # while time.time()-t0 < maxTime:
-        while time.time()-t0 < maxTime and curCost == float('inf'):
+        while time.time()-t0 < maxTime:
+        # while time.time()-t0 < maxTime and curCost == float('inf'):
             planner.planMore(10)
             # try:
             #     planner.planMore(10)
@@ -59,6 +60,7 @@ def testPlanner(problem,numTrials,maxTime,filename, plannerType, **plannerParams
 
         if curCost < float('inf'):
             successes += 1
+            total_cost += curCost
 
         print()
         print("Final cost:",curCost)
@@ -66,8 +68,12 @@ def testPlanner(problem,numTrials,maxTime,filename, plannerType, **plannerParams
 
         f.write(str(trial)+","+str(iters)+","+str(maxTime)+","+str(curCost)+'\n')
     f.close()
-
+    if successes > 0:
+        ave_cost = total_cost/successes
+    else: 
+        ave_cost = float('inf')
     print('Success rate: ' + str(successes/numTrials))
+    print('Average cost: ' + str(ave_cost))
 
 
 
@@ -348,7 +354,7 @@ def record_manual(problem,numTrials,maxTime,filename, plannerType, problemName, 
 
         
         import pdb
-        # pdb.set_trace()
+        pdb.set_trace()
         obs2 = initial_state.tolist()
         epsilon = .01
         reward = controlSpace.goal_contains(obs2)

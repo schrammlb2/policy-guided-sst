@@ -65,8 +65,10 @@ use_value_function = True
 # p_goal = .2
 p_random = .3
 p_goal = .4
-mean_GD_steps = 100#10
+mean_GD_steps = 10#10
 epsilon = 1/(1+mean_GD_steps)
+euclidean = False
+# euclidean = True
 # agent_loc = "saved_models/her_mod_"
 agent_loc = "saved_models/her_"
 
@@ -81,12 +83,18 @@ value_function_infix = "_value"
 
 
 def set_state(self, state):
-    self.sim.set_state_from_flattened(np.array(state))
+    assert type(state) == type([])
+    s = [0] + state
+    # self.sim.set_state_from_flattened(np.array(state))
+    self.sim.set_state_from_flattened(s)
     self.sim.forward()
 
 def state_to_goal(self, state):
-    self.sim.set_state_from_flattened(np.array(state))
-    self.sim.forward()
+    # s = [0] + state
+    # # self.sim.set_state_from_flattened(np.array(state))
+    # self.sim.set_state_from_flattened(s)
+    # self.sim.forward()
+    self.set_state(state)
     obs = self._get_obs()
     return obs['achieved_goal']
 
@@ -98,13 +106,19 @@ class FetchRobot:
         self.start_state = obs['observation']#.tolist()
         self.goal = obs['desired_goal'].tolist()
         setattr(self.env, 'set_state', set_state)
-        self.control_space = GymWrapperGoalConditionedControlSpace(self.env, self.goal)
+        self.control_space = GymWrapperGoalConditionedControlSpace(self.env, self.goal, normalize_state_sampling=False)
+        # self.control_space = GymWrapperGoalConditionedControlSpace(self.env, self.goal, normalize_state_sampling=True)
+
         # def state_to_goal(state):
         #     env.sim.set_state_from_flattened(np.array(state))
         #     env.sim.forward()
         #     obs = env._get_obs()
         #     return obs['achieved_goal']
-        # setattr(self.control_space.configurationSpace, 'state_to_goal', state_to_goal)
+        from ..spaces import metric
+        # dist = lambda x, y: metric.euclideanMetric(x[1:15] + x[31:], y[1:15] + y[31:]) + metric.euclideanMetric(x[1:], y[1:])/5
+        # dist = lambda x, y: metric.euclideanMetric(x[:14] + x[30:], y[:14] + y[30:]) + metric.euclideanMetric(x, y)/5
+        dist = lambda x, y: metric.euclideanMetric(x, y) 
+        setattr(self.control_space.configuration_space, 'distance', dist)
 
     def controlSpace(self):
         return self.control_space
@@ -246,7 +260,7 @@ def fetchReachTest():
     startState = p.startState()
     goalSet = p.goalSet()
     return PlanningProblem(controlSpace, startState, goalSet,
-                           objective=objective)
+                           objective=objective, euclidean=euclidean)
 
 def fetchPushTest():
     # gym_momentum_test()
@@ -257,7 +271,7 @@ def fetchPushTest():
     startState = p.startState()
     goalSet = p.goalSet()
     return PlanningProblem(controlSpace, startState, goalSet,
-                           objective=objective)
+                           objective=objective, euclidean=euclidean)
 
 def fetchSlideTest():
     # gym_momentum_test()
@@ -268,7 +282,7 @@ def fetchSlideTest():
     startState = p.startState()
     goalSet = p.goalSet()
     return PlanningProblem(controlSpace, startState, goalSet,
-                           objective=objective)
+                           objective=objective, euclidean=euclidean)
 
 def fetchPickAndPlaceTest():
     # gym_momentum_test()
@@ -279,4 +293,4 @@ def fetchPickAndPlaceTest():
     startState = p.startState()
     goalSet = p.goalSet()
     return PlanningProblem(controlSpace, startState, goalSet,
-                           objective=objective)
+                           objective=objective, euclidean=euclidean)

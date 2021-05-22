@@ -3,6 +3,23 @@ import numpy as np
 import torch
 from mpi4py import MPI
 
+class torch_normalizer:
+    def __init__(self, means, stds, clip_range): 
+        self.mean = means
+        self.std = stds
+        self.mean = torch.tensor(means)
+        self.std = torch.tensor(stds)
+        self.clip_range = clip_range
+
+    def normalize(self, v): 
+        clip_range = self.clip_range
+        if clip_range is None:
+            clip_range = self.default_clip_range
+        return torch.clip((v - self.mean) / (self.std), -clip_range, clip_range)
+        return np.clip((v - self.mean) / (self.std), -clip_range, clip_range)
+
+
+
 class normalizer:
     def __init__(self, size, eps=1e-2, default_clip_range=np.inf):
         self.size = size
@@ -66,7 +83,7 @@ class normalizer:
 
     # normalize the observation
     def normalize(self, v, clip_range=None):
-        return v
+        # return v
         if clip_range is None:
             clip_range = self.default_clip_range
         return np.clip((v - self.mean) / (self.std), -clip_range, clip_range)
@@ -76,3 +93,6 @@ class normalizer:
         if clip_range is None:
             clip_range = self.default_clip_range
         return torch.clip((v - torch.tensor(self.mean)) / torch.tensor(self.std), -clip_range, clip_range)
+        
+    def get_torch_normalizer(self): 
+        return torch_normalizer(self.mean, self.std, self.default_clip_range)

@@ -299,9 +299,10 @@ class ddpg_agent:
                 self._soft_update_target_network(self.actor_target_network, self.actor_network)
                 # self._soft_update_target_network(self.critic_target_network, self.critic_network)
             # start to do the evaluation
-            success_rate = self._eval_agent()
+            success_rate, ave_reward  = self._eval_agent()
             if MPI.COMM_WORLD.Get_rank() == 0:
-                print('[{}] epoch is: {}, eval success rate is: {:.3f}'.format(datetime.now(), epoch, success_rate))
+                # print('[{}] epoch is: {}, eval success rate is: {:.3f}'.format(datetime.now(), epoch, success_rate))
+                print('[{}] epoch is: {}, eval success rate is: {:.3f}, average reward is {:.3f}'.format(datetime.now(), epoch, success_rate, ave_reward))
                 [hook.run(self) for hook in hooks]
                 # q_value_map(self.critic.min_critic, self.actor_network, title= "HER DDPG value map, epoch " + str(epoch))
                 torch.save([self.o_norm.mean, self.o_norm.std, self.g_norm.mean, self.g_norm.std, self.actor_network.state_dict()], \
@@ -334,31 +335,32 @@ class ddpg_agent:
 
     # update the normalizer
     def _update_normalizer(self, episode_batch):
-        pass
-        # mb_obs, mb_ag, mb_g, mb_actions, mb_col = episode_batch
-        # mb_obs_next = mb_obs[:, 1:, :]
-        # mb_ag_next = mb_ag[:, 1:, :]
-        # # get the number of normalization transitions
-        # num_transitions = mb_actions.shape[1]
-        # # create the new buffer to store them
-        # buffer_temp = {'obs': mb_obs, 
-        #                'ag': mb_ag,
-        #                'g': mb_g, 
-        #                'actions': mb_actions, 
-        #                'obs_next': mb_obs_next,
-        #                'ag_next': mb_ag_next,
-        #                'col': mb_col, 
-        #                }
-        # transitions = self.her_module.sample_her_transitions(buffer_temp, num_transitions)
-        # obs, g = transitions['obs'], transitions['g']
-        # # pre process the obs and g
-        # transitions['obs'], transitions['g'] = self._preproc_og(obs, g)
-        # # update
-        # self.o_norm.update(transitions['obs'])
-        # self.g_norm.update(transitions['g'])
-        # # recompute the stats
-        # self.o_norm.recompute_stats()
-        # self.g_norm.recompute_stats()
+        # pass
+        mb_obs, mb_ag, mb_g, mb_actions, mb_col = episode_batch
+        mb_obs_next = mb_obs[:, 1:, :]
+        mb_ag_next = mb_ag[:, 1:, :]
+        # get the number of normalization transitions
+        num_transitions = mb_actions.shape[1]
+        # create the new buffer to store them
+        buffer_temp = {'obs': mb_obs, 
+                       'ag': mb_ag,
+                       'g': mb_g, 
+                       'actions': mb_actions, 
+                       'obs_next': mb_obs_next,
+                       'ag_next': mb_ag_next,
+                       'col': mb_col, 
+                       }
+        transitions = self.her_module.sample_her_transitions(buffer_temp, num_transitions)
+        obs, g = transitions['obs'], transitions['g']
+        # pre process the obs and g
+        transitions['obs'], transitions['g'] = self._preproc_og(obs, g)
+        # update
+        self.o_norm.update(transitions['obs'])
+        self.g_norm.update(transitions['g'])
+        # recompute the stats
+        self.o_norm.recompute_stats()
+        self.g_norm.recompute_stats()
+        self.actor_network.set_normalizers(self.o_norm.get_torch_normalizer(), self.g_norm.get_torch_normalizer())
 
     def _preproc_og(self, o, g):
         o = np.clip(o, -self.args.clip_obs, self.args.clip_obs)
@@ -459,34 +461,27 @@ class ddpg_agent:
 
     def _eval_agent(self, verbose=False):
         total_success_rate = []
+        total_reward = []
         run_num = self.args.n_test_rollouts
         if verbose: 
             run_num = 1
         for _ in range(run_num):
             # per_success_rate = []
+            total_r = 0
             success = 0
             observation = self.env.reset()
-
-            if self.goal_tuning:
-                pos = observation['observation']
-                random_next_goal = (np.random.rand(2)*2-1)*POS_LIMIT
-                path = [self.env.goal, random_next_goal]
-                # gd_steps=np.random.geometric(p=.5)
-                # time, vel_path = self.evaluate_path(pos, path, gd_steps=self.gd_steps)
-                time, vel_path = self.evaluate_path(pos, path, gd_steps=self.gd_steps)
-                target_v = vel_path[0].detach().numpy() + np.random.standard_normal(2)*.2
-                self.env.set_new_vel_goal(target_v)
-                observation = self.env.get_state()
 
             obs = observation['observation']
             g = observation['desired_goal']
             for _ in range(self.env_params['max_timesteps']):
                 with torch.no_grad():
-                    input_tensor = self._preproc_inputs(obs, g)
-                    pi = self.actor_network(input_tensor)
+                    # input_tensor = self._preproc_inputs(obs, g)
+                    # pi = self.actor_network(input_tensor)
+                    pi = self.actor_network.normed_forward(obs, g)
                     # convert the actions
                     actions = pi.detach().cpu().numpy().squeeze(axis=0)
-                observation_new, _, done, info = self.env.step(actions)
+                observation_new, r, done, info = self.env.step(actions)
+                total_r += r
                 if verbose: 
                     print(observation_new)
                 obs = observation_new['observation']
@@ -496,13 +491,18 @@ class ddpg_agent:
                 if done: 
                     break
 
+
             # total_success_rate.append(per_success_rate)
             total_success_rate.append(success)
+            total_reward.append(total_r)
         total_success_rate = np.array(total_success_rate)
+        total_reward = np.array(total_reward)
         # local_success_rate = np.mean(total_success_rate[:, -1])
         local_success_rate = np.mean(total_success_rate)
+        local_reward = np.mean(total_reward)
         global_success_rate = MPI.COMM_WORLD.allreduce(local_success_rate, op=MPI.SUM)
-        return global_success_rate / MPI.COMM_WORLD.Get_size()
+        global_reward = MPI.COMM_WORLD.allreduce(local_reward, op=MPI.SUM)
+        return global_success_rate / MPI.COMM_WORLD.Get_size(), global_reward / MPI.COMM_WORLD.Get_size()
 
 
     def get_actions(self, observations, goals):
