@@ -195,51 +195,51 @@ class GDValueSampler(ConfigurationSpace):
         self.goal = goal
         self.epsilon = epsilon
 
-    def sample(self) -> list:
-        k = np.random.geometric(self.epsilon) - 1
-        s = torch.tensor(self.configurationSpace.sample(), dtype=torch.float32, requires_grad=True)
-        r = ((torch.tensor(self.start_state) - s)**2).sum()**.5
-        opt = torch.optim.SGD([s], lr=.1)
-        goal_tensor = torch.tensor(self.goal, dtype=torch.float32)
-        start_tensor = torch.tensor(self.start_state, dtype=torch.float32)
-        for i in range(k):
-            opt.zero_grad()
-            # loss = -self.goal_value(s, goal_tensor) - self.p2p_value(start_tensor, s)
-            loss = -(self.goal_value(s, goal_tensor) + self.p2p_value(start_tensor, s))
-            loss.backward()
-            opt.step()
-
-            changed_r = ((torch.tensor(self.start_state) - s)**2).sum()**.5
-            s_projection = start_tensor - (r/changed_r.detach())*(start_tensor - s)
-            s.data = s_projection.data
-
-        return s.detach().numpy().tolist()
-
     # def sample(self) -> list:
     #     k = np.random.geometric(self.epsilon) - 1
     #     s = torch.tensor(self.configurationSpace.sample(), dtype=torch.float32, requires_grad=True)
-    #     # opt = torch.optim.SGD([s], lr=.1)
-    #     opt = torch.optim.Adam([s], lr=.1)
-    #     constraint_constant = 10
+    #     r = ((torch.tensor(self.start_state) - s)**2).sum()**.5
+    #     opt = torch.optim.SGD([s], lr=.1)
     #     goal_tensor = torch.tensor(self.goal, dtype=torch.float32)
     #     start_tensor = torch.tensor(self.start_state, dtype=torch.float32)
-    #     with torch.no_grad: 
-    #         g = self.goal_value(s, goal_tensor)
-    #         p2p = self.p2p_value(start_tensor, s)
-    #         total = g + p2p
-    #         r = g/total
     #     for i in range(k):
     #         opt.zero_grad()
     #         # loss = -self.goal_value(s, goal_tensor) - self.p2p_value(start_tensor, s)
-    #         g = self.goal_value(s, goal_tensor)
-    #         p2p = self.p2p_value(start_tensor, s)
-    #         total = g + p2p
-    #         var_r = g/total
-    #         loss = -total + constraint_constant*(var_r-r)**2
+    #         loss = -(self.goal_value(s, goal_tensor) + self.p2p_value(start_tensor, s))
     #         loss.backward()
     #         opt.step()
 
+    #         changed_r = ((torch.tensor(self.start_state) - s)**2).sum()**.5
+    #         s_projection = start_tensor - (r/changed_r.detach())*(start_tensor - s)
+    #         s.data = s_projection.data
+
     #     return s.detach().numpy().tolist()
+
+    def sample(self) -> list:
+        k = np.random.geometric(self.epsilon) - 1
+        s = torch.tensor(self.configurationSpace.sample(), dtype=torch.float32, requires_grad=True)
+        # opt = torch.optim.SGD([s], lr=.1)
+        opt = torch.optim.Adam([s], lr=.1)
+        constraint_constant = 10
+        goal_tensor = torch.tensor(self.goal, dtype=torch.float32)
+        start_tensor = torch.tensor(self.start_state, dtype=torch.float32)
+        with torch.no_grad(): 
+            g = self.goal_value(s, goal_tensor)
+            p2p = self.p2p_value(start_tensor, s)
+            total = g + p2p
+            r = g/total
+        for i in range(k):
+            opt.zero_grad()
+            # loss = -self.goal_value(s, goal_tensor) - self.p2p_value(start_tensor, s)
+            g = self.goal_value(s, goal_tensor)
+            p2p = self.p2p_value(start_tensor, s)
+            total = g + p2p
+            var_r = g/total
+            loss = -total + constraint_constant*(var_r-r)**2
+            loss.backward()
+            opt.step()
+
+        return s.detach().numpy().tolist()
 
     def contains(self, x: list) -> bool:
         return self.configurationSpace.contains(x)
