@@ -273,13 +273,14 @@ class GDValueSampler(ConfigurationSpace):
 
     def sample(self) -> list:
         k = np.random.geometric(self.epsilon) - 1
-        s = torch.tensor(self.configurationSpace.sample(), dtype=torch.float32, requires_grad=True)
+        # s = torch.tensor(self.configurationSpace.sample(), dtype=torch.float32, requires_grad=True)
+        s = torch.tensor([0] + self.configurationSpace.sample(), dtype=torch.float32, requires_grad=True)
         # opt = torch.optim.SGD([s], lr=.1)
         s0 = s.detach().clone()
         opt = torch.optim.Adam([s], lr=.1)
         constraint_constant = 30
         goal_tensor = torch.tensor(self.goal, dtype=torch.float32)
-        start_tensor = torch.tensor(self.start_state, dtype=torch.float32)
+        start_tensor = torch.tensor([0] + self.start_state.tolist(), dtype=torch.float32)
 
         # with torch.no_grad(): 
         #     l0 = - self.p2p_value(start_tensor, s)-self.goal_value(s, goal_tensor)
@@ -310,8 +311,9 @@ class GDValueSampler(ConfigurationSpace):
         #     print(self.total/self.n)
         #     from ..spaces.plot_gd_sample import plot_gd
         #     plot_gd(self.start_state, traj, self.goal)
-
-        return s.detach().numpy().tolist()
+        rv = s.detach().numpy().tolist()[1:]
+        # assert len(rv) == 30
+        return rv
 
     def contains(self, x: list) -> bool:
         return self.configurationSpace.contains(x)

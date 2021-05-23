@@ -79,7 +79,7 @@ all_problems = {#'Kink':geometric.kinkTest(),
 fetchrobotWitnessRadius = .01#01
 # fetchrobotWitnessRadius = .5#01
 fetchSelectionRadius = 2*fetchrobotWitnessRadius
-fetch_reach_time = 120
+fetch_reach_time = 30
 fetch_time = 600
 # fetch_time = 30
 

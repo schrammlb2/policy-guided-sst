@@ -1,8 +1,8 @@
 import matplotlib.pyplot as plt
 
 def plot_gd(start, sample_traj, goal):
-    plt.xlim((-1,1))
-    plt.ylim((-1,1))
+    # plt.xlim((-1,1))
+    # plt.ylim((-1,1))
     traj_x = [pt[0] for pt in sample_traj]
     traj_y = [pt[1] for pt in sample_traj]
 
