@@ -16,12 +16,13 @@ class torch_normalizer:
         if clip_range is None:
             clip_range = self.default_clip_range
         return torch.clip((v - self.mean) / (self.std), -clip_range, clip_range)
-        return np.clip((v - self.mean) / (self.std), -clip_range, clip_range)
-
+        # return np.clip((v - self.mean) / (self.std), -clip_range, clip_range)
+    def denormalize(self, v):
+        return v*self.std + self.mean
 
 
 class normalizer:
-    def __init__(self, size, eps=1e-2, default_clip_range=np.inf):
+    def __init__(self, size, eps=1e-8, default_clip_range=np.inf):
         self.size = size
         self.eps = eps
         self.default_clip_range = default_clip_range
@@ -41,7 +42,7 @@ class normalizer:
     
     # update the parameters of the normalizer
     def update(self, v):
-        v = v.reshape(-1, self.size)
+        # v = v.reshape(-1, self.size)
         # do the computing
         with self.lock:
             self.local_sum += v.sum(axis=0)
@@ -86,8 +87,69 @@ class normalizer:
         # return v
         if clip_range is None:
             clip_range = self.default_clip_range
-        return np.clip((v - self.mean) / (self.std), -clip_range, clip_range)
+        normed = (v - self.mean) / (self.std)
+        clip_val = np.clip(normed, -clip_range, clip_range)
+        # if ((normed-clip_val)**2).sum() > .0001:
+        #     import pdb
+        #     pdb.set_trace()
+        return clip_val
+
+
+    def denormalize(self, v):
+        return v*self.std + self.mean
 
     def get_torch_normalizer(self): 
         return torch_normalizer(self.mean, self.std, self.default_clip_range)
 
+
+
+gamma = .95
+
+class variant_normalizer(normalizer):
+    def __init__(self, size, eps=1e-8, default_clip_range=np.inf):
+        self.size = size
+        self.eps = eps
+        self.default_clip_range = default_clip_range
+        # some local information
+        self.local_var = np.zeros(self.size, np.float32)
+        self.local_mean = np.zeros(self.size, np.float32)
+        self.local_count = np.zeros(1, np.float32)
+        # get the total sum sumsq and sum count
+        self.total_var = np.zeros(self.size, np.float32)
+        self.total_mean = np.zeros(self.size, np.float32)
+        self.total_count = np.ones(1, np.float32)
+        # get the mean and std
+        self.mean = np.zeros(self.size, np.float32)
+        self.std = np.ones(self.size, np.float32)
+        # thread locker
+        self.lock = threading.Lock()
+    
+
+    def update(self, v):
+        with self.lock:
+            self.local_var += v.var(axis=0)
+            self.local_mean += v.mean(axis=0)
+            self.local_count += 1
+
+
+    def recompute_stats(self):
+        with self.lock:
+            local_count = self.local_count
+            local_mean = self.local_mean.copy()
+            local_var = self.local_var.copy()
+            # reset
+            self.local_count = np.zeros(1)
+            self.local_mean[...] = 0
+            self.local_var[...] = 0
+        # synrc the stats
+        sync_mean, sync_var, sync_count = self.sync(local_mean, local_var, local_count)
+        # update the total stuff
+        self.total_mean += sync_mean
+        self.total_var += sync_var
+        self.total_count += sync_count
+        # calculate the new mean and std
+
+        self.mean = self.total_mean / self.total_count
+        self.std  = (self.total_var / self.total_count)**.5
+
+    

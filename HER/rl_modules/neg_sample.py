@@ -5,6 +5,7 @@ import numpy as np
 from mpi4py import MPI
 from HER.mpi_utils.mpi_utils import sync_networks, sync_grads
 from HER.mpi_utils.normalizer import normalizer
+# from HER.mpi_utils.normalizer import variant_normalizer as normalizer
 from HER.rl_modules.replay_buffer import replay_buffer
 from HER.rl_modules.sac_models import actor, critic, dual_critic
 from HER.her_modules.her import her_sampler
@@ -46,8 +47,10 @@ class ddpg_agent:
         self.actor_optim = torch.optim.Adam(self.actor_network.parameters(), lr=self.args.lr_actor)
         self.critic_optim = torch.optim.Adam(self.critic_network.parameters(), lr=self.args.lr_critic)
 
-        self.dense_reward_fn = lambda o, g, x=None: -np.mean((o-g)**2, axis=-1)**.5*50
-        # self.dense_reward_fn = lambda o, g, x=None: -np.mean((o-g)**2, axis=-1)*50**2
+        # self.dense_reward_fn = lambda o, g, x=None: -np.mean((o-g)**2, axis=-1)**.5*50
+        # power = 2
+        # self.dense_reward_fn = lambda o, g, x=None: -np.mean((o-g)**power, axis=-1)*50**power
+        self.dense_reward_fn = lambda o, g, x=None: -np.mean((o-g)**2, axis=-1)*50**2
 
         # her sampler
         # self.her_module = her_sampler(self.args.replay_strategy, self.args.replay_k, self.env.compute_reward)
@@ -65,6 +68,14 @@ class ddpg_agent:
             self.model_path = os.path.join(self.args.save_dir, self.args.env_name)
             if not os.path.exists(self.model_path):
                 os.mkdir(self.model_path)
+
+        self.negative_sampling = True
+        self.neg_lambda = .0001
+        self.neg_std = 5.0
+        self.neg_ave = 0
+        self.n=1
+        self.mean = 0
+        self.std = 0
 
     def learn(self):
         """
@@ -124,7 +135,12 @@ class ddpg_agent:
             # start to do the evaluation
             success_rate, ave_reward = self._eval_agent()
             if MPI.COMM_WORLD.Get_rank() == 0:
-                print('[{}] epoch is: {}, eval success rate is: {:.3f}, average reward is {:.3f}'.format(datetime.now(), epoch, success_rate, ave_reward))
+
+                # print('[{}] epoch is: {}, eval success rate is: {:.3f}, average reward is {:.3f}'.format(datetime.now(), epoch, success_rate, ave_reward))
+                # torch.save([self.o_norm.mean, self.o_norm.std, self.g_norm.mean, self.g_norm.std, self.actor_network.state_dict()], \
+                #             self.model_path + '/model.pt')
+                print('[{}] epoch is: {}, eval success rate is: {:.3f}, average reward is {:.3f}, average neg value is {:.2f}'.format(
+                    datetime.now(), epoch, success_rate, ave_reward, self.neg_ave))
                 torch.save([self.o_norm.mean, self.o_norm.std, self.g_norm.mean, self.g_norm.std, self.actor_network.state_dict()], \
                             self.model_path + '/model.pt')
 
@@ -226,11 +242,35 @@ class ddpg_agent:
             # clip the q value
             clip_return = 1 / (1 - self.args.gamma)
             target_q_value = torch.clamp(target_q_value, -clip_return, 0)
+            
+            self.std += inputs_norm_tensor.std(dim=0)
+            self.mean += inputs_norm_tensor.mean(dim=0)
+            self.n += 1
+            if self.negative_sampling:
+                negative_samples = torch.normal(0.,1., inputs_norm_tensor.shape)*self.neg_std*(self.std/self.n)
+                negative_actions = self.actor_target_network(negative_samples, with_logprob = False)
         # the q loss
         # real_q_value = self.critic_network(inputs_norm_tensor, actions_tensor)
         # critic_loss = (target_q_value - real_q_value).pow(2).mean()
         real_q_1, real_q_2 = self.critic_network.dual(inputs_norm_tensor, actions_tensor)
-        critic_loss = (target_q_value - real_q_1).pow(2).mean() + (target_q_value - real_q_2).pow(2).mean()
+        q_loss = (target_q_value - real_q_1).pow(2).mean() + (target_q_value - real_q_2).pow(2).mean()
+
+        
+        if self.negative_sampling:
+            neg_q1, neg_q2 = self.critic_network.dual(negative_samples, negative_actions)
+            cut_val = -50
+            reg_loss = self.neg_lambda*((cut_val - neg_q1)**2 + (cut_val - neg_q2)**2).mean()
+
+            critic_loss = q_loss + reg_loss
+
+            self.neg_ave = neg_q1.mean().clone().detach().numpy()
+        else: 
+            critic_loss = q_loss
+            self.neg_ave = 0
+        # if np.random.rand() < .001: 
+        #     import pdb
+        #     pdb.set_trace()
+
         # the actor loss
         actions_real, log_prob = self.actor_network(inputs_norm_tensor, with_logprob = True)
         actor_loss = -self.critic_network(inputs_norm_tensor, actions_real).mean() + self.args.entropy_regularization*log_prob.mean()
@@ -299,6 +339,7 @@ class ddpg_agent:
                     pi = self.actor_network(input_tensor)
                     # convert the actions
                     actions = pi.detach().cpu().numpy().squeeze(axis=0)
+
                 observation_new, r, done, info = self.env.step(actions)
                 total_r += r
                 if verbose: 
@@ -389,50 +430,78 @@ class ddpg_agent:
         hill_climbing=True
         hill_climbing=False
         
-        if hill_climbing:
-            value = value_estimator(torch.tensor(obs, dtype=torch.float32), torch.tensor(g, dtype=torch.float32))
-            s = torch.tensor(obs, dtype=torch.float32)
-            n=20
-            mean_val = lambda s: sum([value_estimator(s + torch.normal(0.,.01, s.shape), 
-                torch.tensor(g, dtype=torch.float32)) for _ in range(n)])/n
-            print("AG: "+ str(ag) + "\tGoal: "+ str(g) + "\t Value: %2.2f \t Total Reward: %2.1f" % (value, total_r))
-            for _ in range(10):
-                rand_vec = [torch.normal(0.,.01, s.shape) for _ in range(n)] + [torch.zeros(s.shape)]
-                vals = [-value_estimator(s + rand_vec[i], torch.tensor(g, dtype=torch.float32)).detach() for i in range(n)]
-                min_i= np.argmin(vals)
-                s = s + rand_vec[min_i]
-                value = mean_val(s)
+        value = value_estimator(torch.tensor(obs, dtype=torch.float32), torch.tensor(g, dtype=torch.float32))
+        s = torch.tensor(obs, requires_grad=True, dtype=torch.float32)
+        total_r = 0
+        n=20
+        mean = self.mean[:-3]/self.n
+        std = self.std[:-3]/self.n
+        normed_s, normed_g = value_estimator.norm(s, torch.tensor(g, dtype=torch.float32))
+        normed_s = normed_s.detach().requires_grad_()
+        def mean_val(state, n=20): 
+            return sum([value_estimator(state + torch.normal(0.,.01, state.shape), 
+                normed_g, norm=False) for _ in range(n)])/n
 
-                observation_new = set_state(self.env, s.detach().numpy())
+
+        if hill_climbing:
+            # value = value_estimator(torch.tensor(obs, dtype=torch.float32), torch.tensor(g, dtype=torch.float32))
+            # s = torch.tensor(obs, dtype=torch.float32)
+            # total_r = 0
+            n=200
+            # mean_val = lambda s: sum([value_estimator(s + torch.normal(0.,.03, s.shape), 
+            #     torch.tensor(g, dtype=torch.float32)) for _ in range(n)])/n
+            print("AG: "+ str(ag) + "\tGoal: "+ str(g) + "\t Value: %2.2f \t Total Reward: %2.1f" % (value, total_r))
+            for _ in range(50):
+                # rand_vec = [torch.normal(0.,.05, s.shape)*(self.std/self.n)[:-3] for _ in range(n)] + [torch.zeros(s.shape)]
+                rand_vec = [torch.normal(0.,.03, s.shape) for _ in range(n)] + [torch.zeros(s.shape)]
+                # vals = [-value_estimator(s + rand_vec[i], torch.tensor(g, dtype=torch.float32)).detach() for i in range(n+1)]
+                # vals = [-value_estimator(s + vec, torch.tensor(g, dtype=torch.float32)).detach() for vec in rand_vec]
+                vals = [-value_estimator(normed_s + vec, normed_g, norm=False).detach() for vec in rand_vec]
+                min_i= np.argmin(vals)
+                # s = s + rand_vec[min_i]
+                normed_s= normed_s + rand_vec[min_i]
+                # value = mean_val(s)
+
+                # observation_new = set_state(self.env, s.detach().numpy())
+                # observation_new = set_state(self.env, normed_s.detach().numpy())
+                new_s, new_g = value_estimator.denorm(normed_s, normed_g)
+                observation_new = set_state(self.env, new_s.detach().numpy())
 
                 obs = observation_new['observation']
                 g = observation_new['desired_goal']
                 ag = observation_new['achieved_goal']
 
                 total_r += self.env.compute_reward(g, ag, None)
+                current_reward = self.dense_reward_fn(g, ag)
 
-                value = value_estimator(torch.tensor(obs, dtype=torch.float32), torch.tensor(g, dtype=torch.float32))
-                print("AG: "+ str(ag) + "\tGoal: "+ str(g) + "\t Value: %2.2f \t Total Reward: %2.1f" % (value, total_r))
+                # value = value_estimator(torch.tensor(obs, dtype=torch.float32), torch.tensor(g, dtype=torch.float32))
+                # value = value_estimator(s, torch.tensor(g, dtype=torch.float32))
+                value = value_estimator(normed_s, normed_g, norm=False).detach()
+                print("AG: "+ str(ag) + "\tGoal: "+ str(g) + "\t Value: %2.2f \t Current reward: %4.2f \t Total Reward: %2.1f" % (value, current_reward, total_r))
 
         else:
-            value = value_estimator(torch.tensor(obs, dtype=torch.float32), torch.tensor(g, dtype=torch.float32))
-            s = torch.tensor(obs, requires_grad=True, dtype=torch.float32)
-            # opt = torch.optim.SGD([s], lr=.00005)
-            opt = torch.optim.Adam([s], lr=.03)
-            total_r = 0
-            n=20
-            mean_val = lambda s: sum([value_estimator(s + torch.normal(0.,.01, s.shape), 
-                torch.tensor(g, dtype=torch.float32)) for _ in range(n)])/n
+            opt = torch.optim.SGD([normed_s], lr=.01)
+            # opt = torch.optim.SGD([normed_s], lr=.000001)
+            opt = torch.optim.Adam([normed_s], lr=.05)
+                # return sum([value_estimator(s + torch.normal(0.,.01, s.shape)*(std), 
+                # torch.tensor(g, dtype=torch.float32)) for _ in range(n)])/n
             print("AG: "+ str(ag) + "\tGoal: "+ str(g) + "\t Value: %2.2f \t Total Reward: %2.1f" % (value, total_r))
-            for _ in range(10):
+            for _ in range(50):
                 opt.zero_grad()
                 # value = value_estimator(s, torch.tensor(g, dtype=torch.float32))
-                value = mean_val(s)
-                loss = -value
+                value = value_estimator(normed_s, normed_g, norm=False)
+                # value = mean_val(normed_s)
+                # reg_loss = (((s - mean)/std)**2).sum()
+                # normed_s, normed_g = value_estimator.norm(s, torch.tensor(g, dtype=torch.float32))
+                # reg_loss = ((normed_s)**2).sum()
+                loss = -value #+ .1*reg_loss
                 loss.backward()
+                # normed_s.grad*=std
                 opt.step()
 
-                observation_new = set_state(self.env, s.detach().numpy())
+                # observation_new = set_state(self.env, s.detach().numpy())
+                new_s, new_g = value_estimator.denorm(normed_s, normed_g)
+                observation_new = set_state(self.env, new_s.detach().numpy())
 
                 obs = observation_new['observation']
                 g = observation_new['desired_goal']
@@ -441,6 +510,8 @@ class ddpg_agent:
                 # success = info['is_success']
 
                 total_r += self.env.compute_reward(g, ag, None)
+                current_reward = self.dense_reward_fn(g, ag)
 
                 value = value_estimator(torch.tensor(obs, dtype=torch.float32), torch.tensor(g, dtype=torch.float32))
-                print("AG: "+ str(ag) + "\tGoal: "+ str(g) + "\t Value: %2.2f \t Total Reward: %2.1f" % (value, total_r))
+                # print("AG: "+ str(ag) + "\tGoal: "+ str(g) + "\t Value: %2.2f \t Total Reward: %2.1f" % (value, total_r))
+                print("AG: "+ str(ag) + "\tGoal: "+ str(g) + "\t Value: %2.2f \t Current reward: %2.2f \t Total Reward: %2.1f" % (value, current_reward, total_r))

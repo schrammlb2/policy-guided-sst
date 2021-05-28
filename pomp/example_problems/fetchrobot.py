@@ -58,14 +58,14 @@ use_heuristic = True
 use_value_function = True
 # use_value_function = False
 # p_goal = .5
-p_random = 0
-# p_random = .5
-p_goal = 1
+# p_random = 0
+p_random = .1
+p_goal = 0
 # p_random = .4
 # p_goal = .2
 # p_random = .3
 # p_goal = .4
-mean_GD_steps = 10#10
+mean_GD_steps = 5#10
 epsilon = 1/(1+mean_GD_steps)
 euclidean = False
 # euclidean = True
@@ -103,11 +103,11 @@ def state_to_goal(self, state):
 class FetchRobot: 
     def setup(self):
         obs = self.env.reset()
-        self.start_state = obs['observation']#.tolist()
+        self.start_state = obs['observation'].tolist()
         self.goal = obs['desired_goal'].tolist()
         setattr(self.env, 'set_state', set_state)
-        self.control_space = GymWrapperGoalConditionedControlSpace(self.env, self.goal, normalize_state_sampling=False)
-        # self.control_space = GymWrapperGoalConditionedControlSpace(self.env, self.goal, normalize_state_sampling=True)
+        # self.control_space = GymWrapperGoalConditionedControlSpace(self.env, self.goal, normalize_state_sampling=False)
+        self.control_space = GymWrapperGoalConditionedControlSpace(self.env, self.goal, normalize_state_sampling=True)
 
         # def state_to_goal(state):
         #     env.sim.set_state_from_flattened(np.array(state))
@@ -116,8 +116,8 @@ class FetchRobot:
         #     return obs['achieved_goal']
         from ..spaces import metric
         # dist = lambda x, y: metric.euclideanMetric(x[1:15] + x[31:], y[1:15] + y[31:]) + metric.euclideanMetric(x[1:], y[1:])/5
-        # dist = lambda x, y: metric.euclideanMetric(x[:14] + x[30:], y[:14] + y[30:]) + metric.euclideanMetric(x, y)/5
-        dist = lambda x, y: metric.euclideanMetric(x, y) 
+        dist = lambda x, y: metric.euclideanMetric(x[:14] + x[30:], y[:14] + y[30:]) + metric.euclideanMetric(x, y)/5
+        # dist = lambda x, y: metric.euclideanMetric(x, y) 
         setattr(self.control_space.configuration_space, 'distance', dist)
 
     def controlSpace(self):
@@ -127,7 +127,7 @@ class FetchRobot:
         return self.control_space.action_set
 
     def startState(self):
-        return self.start_state.tolist()
+        return self.start_state
 
     def configurationSpace(self):
         return self.control_space.configuration_space
@@ -140,8 +140,8 @@ class FetchRobot:
 
     def set_control_selector(self, agent_name):
         if use_agent: 
-            agent = DDPGAgentWrapper(agent_loc + agent_name + goal_suffix, goal_conditioned=True)
-            p2p_agent = DDPGAgentWrapper(agent_loc + agent_name + p2p_suffix, goal_conditioned=True)
+            agent = DDPGAgentWrapper(agent_loc + agent_name + goal_suffix, goal_conditioned=True, zero_buffer=False)
+            p2p_agent = DDPGAgentWrapper(agent_loc + agent_name + p2p_suffix, goal_conditioned=True, zero_buffer=False)
             # def make_control_selector(controlSpace,metric,numSamples):
             #     return RLAgentControlSelector(controlSpace,metric,numSamples, rl_agent = agent, p2p_agent=p2p_agent,
             #         p_goal = p_goal, p_random=p_random, goal=self.goal)
@@ -188,7 +188,7 @@ class FetchRobot:
 
             # value = lambda x: goal_value(x) + p2p_value(x)**.5
             # gd_sampler = GDValueSampler(cs, goal_value, start_state, goal, epsilon=epsilon)
-            gd_sampler = GDValueSampler(cs, goal_value, p2p_value, start_state, goal, epsilon=epsilon)
+            gd_sampler = GDValueSampler(cs, goal_value, p2p_value, start_state, goal, epsilon=epsilon, zero_buffer=False)
             # gd_sampler = GDValueSampler(cs, value, start_state, goal, epsilon=epsilon)
             # self.control_space.configuration_space = gd_sampler
             self.control_space.configuration_sampler = gd_sampler

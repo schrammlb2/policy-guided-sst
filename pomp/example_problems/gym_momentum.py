@@ -44,10 +44,10 @@ Tentative approach
         (pos[:goal_dims] - goal)
 """
 
-
-mean_GD_steps = 10#10
+p_random = .25
+mean_GD_steps = 3
 epsilon = 1/(1+mean_GD_steps)
-
+vel_goal =  True
 # def pendulum_set_state(self, state):
 #     theta = math.asin(state[1])
 #     theta_dot = state[-1]
@@ -61,22 +61,27 @@ def set_state(self, state):
 # class GymPendulum: 
 class Momentum: 
     def __init__(self):
-        self.env = MultiGoalEnvironment("MultiGoalEnvironment", vel_goal=True, time=True)
-        self.env = MultiGoalEnvironment("MultiGoalEnvironment", vel_goal=False, time=True)
+        self.env = MultiGoalEnvironment("MultiGoalEnvironment", vel_goal=vel_goal, time=True)
         obs = self.env.reset()
         setattr(self.env, 'set_state', set_state)
         # goal = [0,0,-.9,-.9]
         goal = [0,0]
+        if vel_goal: 
+            goal += [-.9, -.9]
         # goal = self.env.goal.tolist()
         self.control_space = GymWrapperGoalConditionedControlSpace(self.env, goal)
 
-        agent = DDPGAgentWrapper("saved_models/her_MultiGoalEnvironment.pkl", goal_conditioned=True)
-        p2p_agent = DDPGAgentWrapper("saved_models/her_MultiGoalEnvironment_p2p.pkl", goal_conditioned=True)
+        agent = DDPGAgentWrapper("saved_models/her_MultiGoalEnvironment.pkl", goal_conditioned=True, zero_buffer=False)
+        p2p_agent = DDPGAgentWrapper("saved_models/her_MultiGoalEnvironment_p2p.pkl", goal_conditioned=True, zero_buffer=False)
+        
+        if vel_goal: 
+            agent = p2p_agent
+        
         def make_control_selector(controlSpace,metric,numSamples):
             # return RLAgentControlSelector(controlSpace,metric,numSamples, rl_agent = agent, p_goal = .5, p_random=.5, goal=goal)
             # return RLAgentControlSelector(controlSpace,metric,numSamples, rl_agent = agent, p_goal =1, p_random=.05, goal=goal)
             return RLAgentControlSelector(controlSpace,metric,numSamples, rl_agent = agent, p2p_agent = p2p_agent,
-                p_goal = 0, p_random=0, goal=goal)
+                p_goal = 0, p_random=p_random, goal=goal)
         self.control_space.controlSelector = make_control_selector
 
 
@@ -88,8 +93,11 @@ class Momentum:
         with open(p2p_filename, 'rb') as f:
             p2p_value = pickle.load(f)
 
+        if vel_goal:
+            goal_value = p2p_value 
+
         start_state = obs['observation'].tolist()
-        gd_sampler = GDValueSampler(cs, goal_value, p2p_value, start_state, goal, epsilon=epsilon)
+        gd_sampler = GDValueSampler(cs, goal_value, p2p_value, start_state, goal, epsilon=epsilon, zero_buffer=False)
         # gd_sampler = GDValueSampler(cs, goal_value, None, start_state, goal, epsilon=epsilon)
         self.control_space.configuration_sampler = gd_sampler
 

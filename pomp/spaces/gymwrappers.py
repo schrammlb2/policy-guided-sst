@@ -3,7 +3,7 @@ from .configurationspace import ConfigurationSpace
 from .sets import Set, LambdaSet
 from .interpolators import LinearInterpolator
 from ..planners.kinodynamicplanner import ControlSelector
-
+from ..spaces.plot_gd_sample import plot_gd, approximate_vector_field, scatter_value_heatmap
 
 import numpy as np
 import random
@@ -168,8 +168,8 @@ class GymWrapperConfigurationSpace(ConfigurationSpace):
             if type(self.max_s) != type(None):
                 diff = self.max_s - self.min_s
                 center = self.min_s + diff/2
-                # new_samp = center + (diff+ .1)*samp_arr 
-                new_samp = center + (diff)*samp_arr/2 
+                new_samp = center + (diff+ .1)*samp_arr 
+                # new_samp = center + (diff+.05)*samp_arr/2 
                 # if (diff**2).sum()**.5 > 0:#.0000000000000001:
                 #     import pdb
                 #     pdb.set_trace()
@@ -227,7 +227,7 @@ class GymWrapperConfigurationSpace(ConfigurationSpace):
 #         return self.configurationSpace.contains(x)
 
 class GDValueSampler(ConfigurationSpace):
-    def __init__(self, configurationSpace, goal_value, p2p_value, start_state, goal, epsilon=.5):
+    def __init__(self, configurationSpace, goal_value, p2p_value, start_state, goal, epsilon=.5, zero_buffer=True):
         self.configurationSpace = configurationSpace
         self.goal_value = goal_value
         self.p2p_value = p2p_value
@@ -236,6 +236,10 @@ class GDValueSampler(ConfigurationSpace):
         self.epsilon = epsilon
         self.total = 0
         self.n = 1
+        self.zero_buffer = zero_buffer
+        from pomp.example_problems.robotics.fetch.reach import FetchReachEnv
+        self.env = FetchReachEnv()
+        self.env.reset()
 
     # def sample(self) -> list:
     #     k = np.random.geometric(self.epsilon) - 1
@@ -273,14 +277,17 @@ class GDValueSampler(ConfigurationSpace):
 
     def sample(self) -> list:
         k = np.random.geometric(self.epsilon) - 1
-        # s = torch.tensor(self.configurationSpace.sample(), dtype=torch.float32, requires_grad=True)
-        s = torch.tensor([0] + self.configurationSpace.sample(), dtype=torch.float32, requires_grad=True)
+        if self.zero_buffer:
+            s = torch.tensor([0] + self.configurationSpace.sample(), dtype=torch.float32, requires_grad=True)
+            start_tensor = torch.tensor([0] + self.start_state, dtype=torch.float32)
+        else:
+            s = torch.tensor(self.configurationSpace.sample(), dtype=torch.float32, requires_grad=True)
+            start_tensor = torch.tensor(self.start_state, dtype=torch.float32)
         # opt = torch.optim.SGD([s], lr=.1)
         s0 = s.detach().clone()
-        opt = torch.optim.Adam([s], lr=.1)
+        opt = torch.optim.Adam([s], lr=.05)
         constraint_constant = 30
         goal_tensor = torch.tensor(self.goal, dtype=torch.float32)
-        start_tensor = torch.tensor([0] + self.start_state.tolist(), dtype=torch.float32)
 
         # with torch.no_grad(): 
         #     l0 = - self.p2p_value(start_tensor, s)-self.goal_value(s, goal_tensor)
@@ -292,6 +299,14 @@ class GDValueSampler(ConfigurationSpace):
 
         traj = [s0]
 
+
+        def state_to_goal(state):
+            assert type(state) == list
+            self.env.sim.set_state_from_flattened(np.array([0] + state))
+            self.env.sim.forward()
+            obs = self.env._get_obs()
+            return obs['achieved_goal']
+
         for i in range(k):
             opt.zero_grad()
             # loss = -self.goal_value(s, goal_tensor) - self.p2p_value(start_tensor, s)
@@ -299,21 +314,240 @@ class GDValueSampler(ConfigurationSpace):
             p2p = self.p2p_value(start_tensor, s)
             total = g + p2p
             var_r = g/total
-            loss = -total + constraint_constant*(var_r-r)**2
+            loss = -total# + constraint_constant*(var_r-r)**2
+            # loss = -g
             loss.backward()
+            # import pdb
+            # pdb.set_trace()
             opt.step()
             traj.append(s.clone().detach())
 
         # if k > 10: 
-        #     l1 = - self.p2p_value(start_tensor, s)-self.goal_value(s, goal_tensor) 
-        #     self.total += (l0 - l1).sum()/k
-        #     self.n += 1
-        #     print(self.total/self.n)
+        #     # l1 = - self.p2p_value(start_tensor, s)-self.goal_value(s, goal_tensor) 
+        #     # self.total += (l0 - l1).sum()/k
+        #     # self.n += 1
+        #     # print(self.total/self.n)
         #     from ..spaces.plot_gd_sample import plot_gd
-        #     plot_gd(self.start_state, traj, self.goal)
-        rv = s.detach().numpy().tolist()[1:]
+        #     ee_traj = [state_to_goal(t.numpy().tolist()) for t in traj]
+        #     ee_start = state_to_goal(self.start_state)
+        #     # plot_gd(self.start_state, traj, self.goal)
+        #     plot_gd(ee_start, ee_traj, self.goal)
+        if self.zero_buffer: 
+            rv = s.detach().numpy().tolist()[1:]
+        else: 
+            rv = s.detach().numpy().tolist()
         # assert len(rv) == 30
         return rv
+
+    # def sample(self) -> list:
+    #     k = np.random.geometric(self.epsilon) - 1
+    #     if self.zero_buffer:
+    #         s = torch.tensor([0] + self.configurationSpace.sample(), dtype=torch.float32, requires_grad=True)
+    #         start_tensor = torch.tensor([0] + self.start_state, dtype=torch.float32)
+    #     else:
+    #         s = torch.tensor(self.configurationSpace.sample(), dtype=torch.float32, requires_grad=True)
+    #         start_tensor = torch.tensor(self.start_state, dtype=torch.float32)
+    #     opt = torch.optim.SGD([s], lr=.000025)
+    #     s0 = s.detach().clone()
+    #     opt = torch.optim.Adam([s], lr=.01)
+    #     constraint_constant = 30
+    #     goal_tensor = torch.tensor(self.goal, dtype=torch.float32)
+
+    #     def state_to_goal(state):
+    #         # self.env.sim.set_state_from_flattened(np.array(state))
+    #         assert type(state) == list
+    #         self.env.sim.set_state_from_flattened(np.array([0] + state))
+    #         self.env.sim.forward()
+    #         obs = self.env._get_obs()
+    #         return obs['achieved_goal']
+
+
+    #     with torch.no_grad(): 
+    #         l0 = - self.p2p_value(start_tensor, s)-self.goal_value(s, goal_tensor)
+    #     with torch.no_grad(): 
+    #         g = self.goal_value(s, goal_tensor)
+    #         p2p = self.p2p_value(start_tensor, s)
+    #         total = g + p2p
+    #         r = g/total
+
+    #     traj = [s0]
+
+
+    #     for i in range(k):
+    #         opt.zero_grad()
+    #         # loss = -self.goal_value(s, goal_tensor) - self.p2p_value(start_tensor, s)
+    #         g = self.goal_value(s, goal_tensor)
+    #         p2p = self.p2p_value(start_tensor, s)
+    #         total = g + p2p
+    #         var_r = g/total
+    #         loss = -total# + constraint_constant*(var_r-r)**2
+    #         # loss = -g
+    #         loss.backward()
+    #         # import pdb
+    #         # pdb.set_trace()
+    #         opt.step()
+    #         traj.append(s.clone().detach())
+
+    #     # if k > 10: 
+    #     #     # l1 = - self.p2p_value(start_tensor, s)-self.goal_value(s, goal_tensor) 
+    #     #     # self.total += (l0 - l1).sum()/k
+    #     #     # self.n += 1
+    #     #     # print(self.total/self.n)
+    #     #     # from ..spaces.plot_gd_sample import plot_gd
+    #     #     ee_traj = [state_to_goal(t.numpy().tolist()) for t in traj]
+    #     #     ee_start = state_to_goal(start_tensor.detach().numpy().tolist())
+    #     #     plot_gd(ee_start, ee_traj, self.goal)
+    #         # pass
+    #     if self.zero_buffer: 
+    #         rv = s.detach().numpy().tolist()[1:]
+    #     else: 
+    #         rv = s.detach().numpy().tolist()
+    #     # assert len(rv) == 30
+    #     return rv
+
+
+
+
+    # def sample(self) -> list:
+          #
+    #     #Plot gradient at some sampled points
+          #
+    #     k = np.random.geometric(self.epsilon) - 1
+    #     # opt = torch.optim.Adam([s], lr=.05)
+    #     constraint_constant = 30
+    #     goal_tensor = torch.tensor(self.goal, dtype=torch.float32)
+
+
+    #     grad_list = []
+
+
+    #     def state_to_goal(state):
+    #         # self.env.sim.set_state_from_flattened(np.array(state))
+    #         assert type(state) == list
+    #         self.env.sim.set_state_from_flattened(np.array([0] + state))
+    #         self.env.sim.forward()
+    #         obs = self.env._get_obs()
+    #         return obs['achieved_goal']
+
+    #     # def state_to_goal(state):
+    #     #     self.env.sim.set_state_from_flattened(np.array(state))
+    #     #     self.env.sim.forward()
+    #     #     obs = self.env._get_obs()
+    #     #     return obs['achieved_goal']
+
+    #     # def state_to_goal(state):
+    #     #     return state[:2]
+
+
+    #     for i in range(100):
+    #         if self.zero_buffer:
+    #             s = torch.tensor([0] + self.configurationSpace.sample(), dtype=torch.float32, requires_grad=True)
+    #             start_tensor = torch.tensor([0] + self.start_state, dtype=torch.float32)
+    #         else:
+    #             s = torch.tensor(self.configurationSpace.sample(), dtype=torch.float32, requires_grad=True)
+    #             start_tensor = torch.tensor(self.start_state, dtype=torch.float32)
+
+    #         # opt = torch.optim.SGD([s], lr=.005)
+    #         opt = torch.optim.SGD([s], lr=.000025)
+    #         s0 = s.detach().clone()
+
+    #         opt.zero_grad()
+    #         # loss = -self.goal_value(s, goal_tensor) - self.p2p_value(start_tensor, s)
+    #         g = self.goal_value(s, goal_tensor)
+    #         p2p = self.p2p_value(start_tensor, s)
+    #         total = g + p2p
+    #         var_r = g/total
+    #         # loss = -total 
+    #         loss = -g
+    #         loss.backward()
+    #         opt.step()
+    #         grad_list.append([s0, s.clone().detach()])
+    #         # traj.append()
+
+    #     # if k > 10: 
+    #     #     # l1 = - self.p2p_value(start_tensor, s)-self.goal_value(s, goal_tensor) 
+    #     #     # self.total += (l0 - l1).sum()/k
+    #     #     # self.n += 1
+    #     #     # print(self.total/self.n)
+    #     #     from ..spaces.plot_gd_sample import plot_gd
+    #     # import pdb
+    #     # pdb.set_trace()
+    #     ee_traj = [ [state_to_goal(t[0].numpy().tolist()),  state_to_goal(t[1].numpy().tolist())]
+    #         for t in grad_list]
+    #     ee_start = state_to_goal(start_tensor.detach().numpy().tolist())
+    #     #     # plot_gd(self.start_state, traj, self.goal)
+    #     approximate_vector_field(ee_start, ee_traj, self.goal)
+
+    #     if self.zero_buffer: 
+    #         rv = s.detach().numpy().tolist()[1:]
+    #     else: 
+    #         rv = s.detach().numpy().tolist()
+    #     # assert len(rv) == 30
+    #     return rv
+
+
+    # def sample(self) -> list:
+    #     #
+    #     #Plot value of some sampled points
+    #     #
+    #     k = np.random.geometric(self.epsilon) - 1
+    #     # opt = torch.optim.Adam([s], lr=.05)
+    #     constraint_constant = 30
+    #     goal_tensor = torch.tensor(self.goal, dtype=torch.float32)
+
+    #     val_list = []
+
+
+    #     def state_to_goal(state):
+    #         # self.env.sim.set_state_from_flattened(np.array(state))
+    #         assert type(state) == list
+    #         self.env.sim.set_state_from_flattened(np.array([0] + state))
+    #         self.env.sim.forward()
+    #         obs = self.env._get_obs()
+    #         return obs['achieved_goal']
+            
+    #     # def state_to_goal(state):
+    #     #     self.env.sim.set_state_from_flattened(np.array(state))
+    #     #     self.env.sim.forward()
+    #     #     obs = self.env._get_obs()
+    #     #     return obs['achieved_goal']
+
+    #     # def state_to_goal(state):
+    #     #     return state[:2]
+
+
+    #     for i in range(1000):
+    #         if self.zero_buffer:
+    #             s = torch.tensor([0] + self.configurationSpace.sample(), dtype=torch.float32, requires_grad=True)
+    #             start_tensor = torch.tensor([0] + self.start_state, dtype=torch.float32)
+    #         else:
+    #             s = torch.tensor(self.configurationSpace.sample(), dtype=torch.float32, requires_grad=True)
+    #             start_tensor = torch.tensor(self.start_state, dtype=torch.float32)
+
+    #         s0 = s.detach().clone()
+
+    #         # loss = -self.goal_value(s, goal_tensor) - self.p2p_value(start_tensor, s)
+    #         g = self.goal_value(s, goal_tensor)
+    #         p2p = self.p2p_value(start_tensor, s)
+    #         total = g + p2p
+    #         var_r = g/total
+    #         # loss = -total 
+    #         loss = -g
+    #         achieved_state = state_to_goal(s.detach().numpy().tolist())
+    #         val_list.append([achieved_state, loss.detach().numpy().tolist()])
+    #         # traj.append()
+
+    #     ee_traj = [(t[0][0], t[0][1], t[1]) for t in val_list]
+    #     ee_start = state_to_goal(start_tensor.detach().numpy().tolist())
+    #     #     # plot_gd(self.start_state, traj, self.goal)
+    #     scatter_value_heatmap(ee_start, ee_traj, self.goal)
+
+    #     if self.zero_buffer: 
+    #         rv = s.detach().numpy().tolist()[1:]
+    #     else: 
+    #         rv = s.detach().numpy().tolist()
+    #     # assert len(rv) == 30
+    #     return rv
 
     def contains(self, x: list) -> bool:
         return self.configurationSpace.contains(x)
@@ -510,7 +744,7 @@ class RLAgentControlSelector(ControlSelector):
                     if self.goal_conditioned: 
                         state = obs['observation'].tolist()
                     else: 
-                        state = obs
+                        state = obs.tolist()
                     if reward == 0:
                         break 
             return sequence
@@ -531,9 +765,9 @@ class RLAgentControlSelector(ControlSelector):
                     sequence.append(action)
                     obs = env.step(np.array(action))[0]
                     if self.goal_conditioned: 
-                        state = obs['observation']
+                        state = obs['observation'].tolist()
                     else: 
-                        state = obs
+                        state = obs.tolist()
 
             return sequence
             # action = self.rl_agent.sample(x, xdesired)
@@ -575,13 +809,14 @@ class RLAgentControlSelector(ControlSelector):
         #     return sequence
 
 class RLAgentWrapper:
-    def __init__(self, filename, goal_conditioned = True):
+    def __init__(self, filename, goal_conditioned = True, zero_buffer=True):
         print('Opening policy at location ' + filename)
         with open(filename, 'rb') as f:
             self.agent = pickle.load(f)
 
         self.agent.eval()
         self.goal_conditioned = goal_conditioned
+        self.zero_buffer = zero_buffer
 
     def sample(self, x, goal): 
         raise NotImplementedError
@@ -607,7 +842,11 @@ class DDPGAgentWrapper(RLAgentWrapper):
         assert type(x) == list
         assert type(goal) == list
         if self.goal_conditioned: 
-            obs = [0] + x
+            if self.zero_buffer:
+                obs = [0] + x
+            else:
+                obs = x
+
             return_value = self.agent.normed_forward(np.array(obs), np.array(goal), deterministic=False)[0].detach().tolist()
             # return_value = normed_forward(self, obs, g, deterministic=False)[0].detach().tolist()
             # return_value = self.agent.normed_forward(x, goal, deterministic=True)[0].detach().tolist()

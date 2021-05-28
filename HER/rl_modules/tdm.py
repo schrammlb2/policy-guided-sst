@@ -6,24 +6,20 @@ from mpi4py import MPI
 from HER.mpi_utils.mpi_utils import sync_networks, sync_grads
 from HER.mpi_utils.normalizer import normalizer
 from HER.rl_modules.replay_buffer import replay_buffer
-from HER.rl_modules.sac_models import actor, critic, dual_critic
+from HER.rl_modules.sac_models import actor, tdm_critic, dual_critic
 from HER.her_modules.her import her_sampler
-import copy
-from sample_valid_goal import sample_valid_goal
 
 """
 ddpg with HER (MPI-version)
 
 """
 # critic_constructor = critic
-critic_constructor = dual_critic
+critic_constructor = tdm_critic
 
 class ddpg_agent:
     def __init__(self, args, env, env_params):
         self.args = args
         self.env = env
-        self.observation_space = self.env.observation_space['observation']
-        env_params['goal'] = env_params['obs']
         self.env_params = env_params
         # create the network
         self.actor_network = actor(env_params)
@@ -49,17 +45,12 @@ class ddpg_agent:
         self.actor_optim = torch.optim.Adam(self.actor_network.parameters(), lr=self.args.lr_actor)
         self.critic_optim = torch.optim.Adam(self.critic_network.parameters(), lr=self.args.lr_critic)
 
-        # self.reward_fn = lambda o, g, x=None: (np.mean((o-g)**2, axis=-1) < .0025) -1
-        scale = .25
-        self.sparse_reward_fn = lambda o, g, x=None: (np.mean(np.abs(o-g), axis=-1)/scale < 1) -1
-        # self.sparse_reward_fn = lambda o, g, x=None: (np.all(np.abs(o-g)/scale < 1, axis=-1)) -1
-        # self.sparse_reward_fn = lambda o, g, x=None: (np.sum(np.abs(o-g), axis=-1)/(scale*o.shape[0]) < 1) -1
         self.dense_reward_fn = lambda o, g, x=None: -np.mean((o-g)**2, axis=-1)**.5*50
+        # self.dense_reward_fn = lambda o, g, x=None: -np.mean((o-g)**2, axis=-1)*50**2
 
         # her sampler
         # self.her_module = her_sampler(self.args.replay_strategy, self.args.replay_k, self.env.compute_reward)
         self.her_module = her_sampler(self.args.replay_strategy, self.args.replay_k, self.dense_reward_fn)
-        # self.her_module = her_sampler(self.args.replay_strategy, self.args.replay_k, self.sparse_reward_fn)
         # create the replay buffer
         self.buffer = replay_buffer(self.env_params, self.args.buffer_size, self.her_module.sample_her_transitions)
         # create the normalizer
@@ -89,11 +80,8 @@ class ddpg_agent:
                     # reset the environment
                     observation = self.env.reset()
                     obs = observation['observation']
-                    # ag = observation['achieved_goal']
-                    # g = observation['desired_goal']
-                    ag =  observation['observation']
-                    # g = self.observation_space.sample()
-                    g = sample_valid_goal(self.env)
+                    ag = observation['achieved_goal']
+                    g = observation['desired_goal']
                     # start to collect samples
                     for t in range(self.env_params['max_timesteps']):
                         with torch.no_grad():
@@ -103,8 +91,7 @@ class ddpg_agent:
                         # feed the actions into the environment
                         observation_new, _, _, info = self.env.step(action)
                         obs_new = observation_new['observation']
-                        # ag_new = observation_new['achieved_goal']
-                        ag_new = observation_new['observation']
+                        ag_new = observation_new['achieved_goal']
                         # append rollouts
                         ep_obs.append(obs.copy())
                         ep_ag.append(ag.copy())
@@ -134,9 +121,9 @@ class ddpg_agent:
                 self._soft_update_target_network(self.actor_target_network, self.actor_network)
                 self._soft_update_target_network(self.critic_target_network, self.critic_network)
             # start to do the evaluation
-            success_rate = self._eval_agent()
+            success_rate, ave_reward = self._eval_agent()
             if MPI.COMM_WORLD.Get_rank() == 0:
-                print('[{}] epoch is: {}, eval success rate is: {:.3f}'.format(datetime.now(), epoch, success_rate))
+                print('[{}] epoch is: {}, eval success rate is: {:.3f}, average reward is {:.3f}'.format(datetime.now(), epoch, success_rate, ave_reward))
                 torch.save([self.o_norm.mean, self.o_norm.std, self.g_norm.mean, self.g_norm.std, self.actor_network.state_dict()], \
                             self.model_path + '/model.pt')
 
@@ -258,48 +245,171 @@ class ddpg_agent:
         sync_grads(self.critic_network)
         self.critic_optim.step()
 
-    # def sample_valid_goal(self,base_env):
-    #     # return base_env.observation_space['observation'].sample()
-    #     env = copy.deepcopy(base_env)
-    #     env.reset()
-    #     step_num = int(.9*env._max_episode_steps)
-    #     step_num = 25
-    #     for i in range(step_num):
-    #         action = env.action_space.sample()
-    #         observation, reward, done, info = env.step(action)
-
-    #     return observation['observation']
-
     # do the evaluation
-    def _eval_agent(self):
+    # def _eval_agent(self):
+    #     total_success_rate = []
+    #     for _ in range(self.args.n_test_rollouts):
+    #         per_success_rate = []
+    #         observation = self.env.reset()
+    #         obs = observation['observation']
+    #         g = observation['desired_goal']
+    #         total_r = 0
+    #         for _ in range(self.env_params['max_timesteps']):
+    #             with torch.no_grad():
+    #                 pi = self.actor_network.normed_forward(obs, g, deterministic=True)
+    #                 # input_tensor = self._preproc_inputs(obs, g)
+    #                 # pi = self.actor_network(input_tensor, deterministic=True)
+    #                 # convert the actions
+    #                 # import pdb
+    #                 # pdb.set_trace()
+    #                 # actions = pi.detach().cpu().numpy().squeeze()
+    #                 actions = pi.detach().cpu().numpy().squeeze(axis=0)
+    #             observation_new, r, _, info = self.env.step(actions)
+    #             total_r += r
+    #             obs = observation_new['observation']
+    #             g = observation_new['desired_goal']
+    #             per_success_rate.append(info['is_success'])
+    #         # total_success_rate.append(per_success_rate)
+    #         total_success_rate.append(total_r)
+    #     total_success_rate = np.array(total_success_rate)
+    #     # local_success_rate = np.mean(total_success_rate[:, -1])
+    #     local_success_rate = np.mean(total_success_rate)
+    #     global_success_rate = MPI.COMM_WORLD.allreduce(local_success_rate, op=MPI.SUM)
+    #     return global_success_rate / MPI.COMM_WORLD.Get_size()
+
+
+    def _eval_agent(self, verbose=False):
         total_success_rate = []
-        for _ in range(self.args.n_test_rollouts):
-            per_success_rate = []
-            observation = self.env.reset()
-            obs = observation['observation']
-            # g = observation['desired_goal']
-            # g = self.observation_space.sample()
-            g = sample_valid_goal(self.env)
+        total_reward = []
+        run_num = self.args.n_test_rollouts
+        if verbose: 
+            run_num = 1
+        for _ in range(run_num):
             total_r = 0
+            # per_success_rate = []
+            success = 0
+            observation = self.env.reset()
+
+            obs = observation['observation']
+            g = observation['desired_goal']
             for _ in range(self.env_params['max_timesteps']):
                 with torch.no_grad():
-                    pi = self.actor_network.normed_forward(obs, g, deterministic=True)
-                    # input_tensor = self._preproc_inputs(obs, g)
-                    # pi = self.actor_network(input_tensor, deterministic=True)
+                    input_tensor = self._preproc_inputs(obs, g)
+                    pi = self.actor_network(input_tensor)
                     # convert the actions
-                    # import pdb
-                    # pdb.set_trace()
-                    # actions = pi.detach().cpu().numpy().squeeze()
                     actions = pi.detach().cpu().numpy().squeeze(axis=0)
-                observation_new, _, _, info = self.env.step(actions)
+                observation_new, r, done, info = self.env.step(actions)
+                total_r += r
+                if verbose: 
+                    print(observation_new)
                 obs = observation_new['observation']
-                # g = observation_new['desired_goal']
-                total_r += self.sparse_reward_fn(obs, g)
-                per_success_rate.append(info['is_success'])
-            total_success_rate.append(total_r)
+                g = observation_new['desired_goal']
+                # per_success_rate.append(info['is_success'])
+                success = info['is_success']
+                if done: 
+                    break
+
+
             # total_success_rate.append(per_success_rate)
+            total_success_rate.append(success)
+            total_reward.append(total_r)
+        # import pdb
+        # pdb.set_trace()
         total_success_rate = np.array(total_success_rate)
+        total_reward = np.array(total_reward)
         # local_success_rate = np.mean(total_success_rate[:, -1])
         local_success_rate = np.mean(total_success_rate)
+        local_reward = np.mean(total_reward)
         global_success_rate = MPI.COMM_WORLD.allreduce(local_success_rate, op=MPI.SUM)
-        return global_success_rate / MPI.COMM_WORLD.Get_size()
+        global_reward = MPI.COMM_WORLD.allreduce(local_reward, op=MPI.SUM)
+        return global_success_rate / MPI.COMM_WORLD.Get_size(), global_reward / MPI.COMM_WORLD.Get_size()
+
+
+    def print_value_sequence(self, value_estimator, forced_state=None):
+        print("---------------------------------------------------------")
+        print("Agent sequence")
+        print("---------------------------------------------------------")
+        observation = self.env.reset()
+        if type(forced_state) != type(None):
+            s = [0] + forced_state.tolist()
+            # self.sim.set_state_from_flattened(np.array(state))
+            self.env.sim.set_state_from_flattened(s)
+            self.env.sim.forward()
+            observation = self.env._get_obs()
+
+        obs = observation['observation']
+        g = observation['desired_goal']
+        ag = observation['achieved_goal']
+        value = value_estimator(torch.tensor(obs, dtype=torch.float32), torch.tensor(g, dtype=torch.float32))
+        total_r = 0
+        print("AG: "+ str(ag) + "\tGoal: "+ str(g) + "\t Value: %2.2f \t Total Reward: %2.1f" % (value, total_r))
+        for _ in range(10):#self.env_params['max_timesteps']):
+            with torch.no_grad():
+                input_tensor = self._preproc_inputs(obs, g)
+                pi = self.actor_network(input_tensor)
+                # convert the actions
+                actions = pi.detach().cpu().numpy().squeeze(axis=0)
+            observation, r, done, info = self.env.step(actions)
+            total_r += r
+
+            obs = observation['observation']
+            g = observation['desired_goal']
+            ag = observation['achieved_goal']
+            # per_success_rate.append(info['is_success'])
+            success = info['is_success']
+            value = value_estimator(torch.tensor(obs, dtype=torch.float32), torch.tensor(g, dtype=torch.float32))
+            print("AG: "+ str(ag) + "\tGoal: "+ str(g) + "\t Value: %2.2f \t Total Reward: %2.1f" % (value, total_r))
+            if done: 
+                break
+
+
+
+    def print_gd_value_sequence(self, value_estimator, forced_state=None):
+        print("---------------------------------------------------------")
+        print("Gradient descent sequence")
+        print("---------------------------------------------------------")
+        observation = self.env.reset()
+        def set_state(env, state):
+            s = [0] + state.tolist()
+            env.env.sim.set_state_from_flattened(np.array(s))
+            # self.env.sim.set_state_from_flattened(s)
+            env.env.sim.forward()
+            observation = env.env._get_obs()
+            return observation
+
+        if type(forced_state) != type(None):
+            observation = set_state(env, forced_state)
+
+        obs = observation['observation']
+        g = observation['desired_goal']
+        ag = observation['achieved_goal']
+
+        value = value_estimator(torch.tensor(obs, dtype=torch.float32), torch.tensor(g, dtype=torch.float32))
+        s = torch.tensor(obs, requires_grad=True, dtype=torch.float32)
+        opt = torch.optim.SGD([s], lr=.00005)
+        # opt = torch.optim.Adam([s], lr=.03)
+        total_r = 0
+        n=20
+        mean_val = lambda s: sum([value_estimator(s + torch.normal(0.,.01, s.shape), 
+            torch.tensor(g, dtype=torch.float32)) for _ in range(n)])/n
+        print("AG: "+ str(ag) + "\tGoal: "+ str(g) + "\t Value: %2.2f \t Total Reward: %2.1f" % (value, total_r))
+        for _ in range(10):
+            opt.zero_grad()
+            # value = value_estimator(s, torch.tensor(g, dtype=torch.float32))
+            value = mean_val(s)
+            loss = -value
+            loss.backward()
+            opt.step()
+
+            observation_new = set_state(self.env, s.detach().numpy())
+
+            obs = observation_new['observation']
+            g = observation_new['desired_goal']
+            ag = observation_new['achieved_goal']
+            # per_success_rate.append(info['is_success'])
+            # success = info['is_success']
+
+            total_r += self.env.compute_reward(g, ag, None)
+
+            value = value_estimator(torch.tensor(obs, dtype=torch.float32), torch.tensor(g, dtype=torch.float32))
+            print("AG: "+ str(ag) + "\tGoal: "+ str(g) + "\t Value: %2.2f \t Total Reward: %2.1f" % (value, total_r))

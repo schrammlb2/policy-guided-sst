@@ -111,6 +111,11 @@ class actor(nn.Module):
         g_norm = self.g_norm.normalize(g)
         return obs_norm, g_norm
 
+    def _get_denorms(self, obs, g):
+        obs_denorm = self.o_norm.denormalize(obs)
+        g_denorm = self.g_norm.denormalize(g)
+        return obs_denorm, g_denorm
+
     def normed_forward(self, obs, g, deterministic=False): 
         obs_norm, g_norm = self._get_norms(torch.tensor(obs, dtype=torch.float32), torch.tensor(g, dtype=torch.float32))
         # concatenate the stuffs
@@ -144,6 +149,46 @@ class critic(nn.Module):
         q_value = self.q_out(x)
 
         return q_value
+
+class tdm_critic(nn.Module):
+    def __init__(self, env_params):
+        super(critic, self).__init__()
+        self.max_action = env_params['action_max']
+        self.norm1 = nn.LayerNorm(env_params['obs'] + env_params['goal'] + env_params['action'])
+        self.norm2 = nn.LayerNorm(256)
+        self.norm3 = nn.LayerNorm(256)
+        self.fc1 = nn.Linear(env_params['obs'] + env_params['goal'] + env_params['action'], 256)
+        self.fc2 = nn.Linear(256, 256)
+        self.fc3 = nn.Linear(256, 256)
+        self.q_out = nn.Linear(256, env_params['goal'])
+
+    def forward(self, x, actions):
+        x = torch.cat([x, actions / self.max_action], dim=1)
+        x = self.norm1(x)
+        x = torch.clip(x, -clip_max, clip_max)
+        x = F.relu(self.fc1(x))
+        x = self.norm2(x)
+        x = F.relu(self.fc2(x))
+        x = self.norm3(x)
+        x = F.relu(self.fc3(x))
+        q_value = (self.q_out(x)**2).sum(dim=-1)
+
+        return q_value
+
+
+    def forward(self, x, actions):
+        x = torch.cat([x, actions / self.max_action], dim=1)
+        x = self.norm1(x)
+        x = torch.clip(x, -clip_max, clip_max)
+        x = F.relu(self.fc1(x))
+        x = self.norm2(x)
+        x = F.relu(self.fc2(x))
+        x = self.norm3(x)
+        x = F.relu(self.fc3(x))
+        q_value = self.q_out(x)
+
+        return q_value
+
 
 class dual_critic(nn.Module):
     def __init__(self, env_params):
@@ -187,10 +232,21 @@ class StateValueEstimator(nn.Module):
         # ratio = -.99*torch.clip(q/max_q, -1,0) #.99 for numerical stability
         return torch.log(1+q*(1-self.gamma)*.998)/torch.log(torch.tensor(self.gamma))
 
-    def forward(self, o: torch.Tensor, g: torch.Tensor): 
+    def norm(self, o: torch.Tensor, g: torch.Tensor):
+        return self.actor._get_norms(o,g)
+        
+    def denorm(self, o: torch.Tensor, g: torch.Tensor):
+        return self.actor._get_denorms(o,g)
+    # def denorm_o(self, o: torch.Tensor):
+    # def denorm_g(self, o: torch.Tensor):
+
+    def forward(self, o: torch.Tensor, g: torch.Tensor, norm=True): 
         assert type(o) == torch.Tensor
         assert type(g) == torch.Tensor
-        obs_norm, g_norm = self.actor._get_norms(o,g)
+        if norm: 
+            obs_norm, g_norm = self.actor._get_norms(o,g)
+        else: 
+            obs_norm, g_norm = o, g
         inputs = torch.cat([obs_norm, g_norm])
         inputs = inputs.unsqueeze(0)
 
