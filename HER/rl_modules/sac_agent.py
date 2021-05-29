@@ -72,6 +72,7 @@ class ddpg_agent:
 
         """
         # start to collect samples
+        self.actor_network.eval()
         for epoch in range(self.args.n_epochs):
             for _ in range(self.args.n_cycles):
                 mb_obs, mb_ag, mb_g, mb_actions = [], [], [], []
@@ -115,10 +116,12 @@ class ddpg_agent:
                 # store the episodes
                 self.buffer.store_episode([mb_obs, mb_ag, mb_g, mb_actions])
                 self._update_normalizer([mb_obs, mb_ag, mb_g, mb_actions])
+                self.actor_network.train()
                 for _ in range(self.args.n_batches):
                     # train the network
                     self._update_network()
                 # soft update
+                self.actor_network.eval()
                 self._soft_update_target_network(self.actor_target_network, self.actor_network)
                 self._soft_update_target_network(self.critic_target_network, self.critic_network)
             # start to do the evaluation

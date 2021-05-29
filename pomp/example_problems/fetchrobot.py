@@ -65,7 +65,7 @@ p_goal = 1
 # p_goal = .2
 # p_random = .3
 # p_goal = .4
-mean_GD_steps = 3#10#5
+mean_GD_steps = 10
 epsilon = 1/(1+mean_GD_steps)
 euclidean = False
 # euclidean = True
@@ -214,7 +214,7 @@ class FetchReach(FetchRobot):
 
 class FetchPush(FetchRobot): 
     def __init__(self):
-        zero_buffer = True
+        zero_buffer = False
         self.env = FetchPushEnv()
         agent_name = "FetchPush"
         self.env_name = agent_name
@@ -227,7 +227,8 @@ class FetchPush(FetchRobot):
 
 class FetchSlide(FetchRobot): 
     def __init__(self):
-        zero_buffer = True
+        # zero_buffer = True
+        zero_buffer = False
         self.env = FetchSlideEnv()
         agent_name = "FetchSlide"
         self.env_name = agent_name
@@ -241,6 +242,7 @@ class FetchSlide(FetchRobot):
 class FetchPickAndPlace(FetchRobot): 
     def __init__(self):
         zero_buffer = True
+        # zero_buffer = False
         self.env = FetchPickAndPlaceEnv()
         agent_name = "FetchPickAndPlace"
         self.env_name = agent_name

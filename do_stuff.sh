@@ -4,9 +4,9 @@
 # python train_distance_function.py  --batch-size=1024  --cuda --env-name=FetchPickAndPlace --hidden-size=256 --epoch=100 --dropout-rate=.5
 # python train_distance_function.py  --batch-size=1024  --cuda --env-name=FetchSlide --hidden-size=256 --epoch=100 --dropout-rate=.5
 
-mpirun -np 3 python -u train_HER.py --env-name='FetchReach' --n-epochs=10 
+# mpirun -np 3 python -u train_HER.py --env-name='FetchReach' --n-epochs=10 
 # mpirun -np 3 python -u train_HER.py --env-name='FetchReach' --n-epochs=10 --p2p
-mpirun -np 3 python -u train_HER.py --env-name='FetchPush' --n-epochs=100 
+# mpirun -np 3 python -u train_HER.py --env-name='FetchPush' --n-epochs=100 
 # mpirun -np 3 python -u train_HER.py --env-name='FetchPush' --n-epochs=100 --p2p
 mpirun -np 3 python -u train_HER.py --env-name='FetchPickAndPlace' --n-epochs=200
 mpirun -np 3 python -u train_HER.py --env-name='FetchPickAndPlace' --n-epochs=200 --p2p

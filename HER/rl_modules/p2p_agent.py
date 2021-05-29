@@ -49,12 +49,17 @@ class ddpg_agent:
         self.actor_optim = torch.optim.Adam(self.actor_network.parameters(), lr=self.args.lr_actor)
         self.critic_optim = torch.optim.Adam(self.critic_network.parameters(), lr=self.args.lr_critic)
 
+        # create the normalizer
+        self.o_norm = normalizer(size=env_params['obs'], default_clip_range=self.args.clip_range)
+        self.g_norm = normalizer(size=env_params['goal'], default_clip_range=self.args.clip_range)
+
         # self.reward_fn = lambda o, g, x=None: (np.mean((o-g)**2, axis=-1) < .0025) -1
         scale = .25
         self.sparse_reward_fn = lambda o, g, x=None: (np.mean(np.abs(o-g), axis=-1)/scale < 1) -1
         # self.sparse_reward_fn = lambda o, g, x=None: (np.all(np.abs(o-g)/scale < 1, axis=-1)) -1
         # self.sparse_reward_fn = lambda o, g, x=None: (np.sum(np.abs(o-g), axis=-1)/(scale*o.shape[0]) < 1) -1
-        self.dense_reward_fn = lambda o, g, x=None: -np.mean((o-g)**2, axis=-1)**.5*50
+        # self.dense_reward_fn = lambda o, g, x=None: -np.mean((o-g)**2, axis=-1)**.5*50
+        self.dense_reward_fn = lambda o, g, x=None: -np.mean((self.o_norm(o)-self.g_norm(g))**2, axis=-1)**.5
 
         # her sampler
         # self.her_module = her_sampler(self.args.replay_strategy, self.args.replay_k, self.env.compute_reward)
@@ -62,9 +67,6 @@ class ddpg_agent:
         # self.her_module = her_sampler(self.args.replay_strategy, self.args.replay_k, self.sparse_reward_fn)
         # create the replay buffer
         self.buffer = replay_buffer(self.env_params, self.args.buffer_size, self.her_module.sample_her_transitions)
-        # create the normalizer
-        self.o_norm = normalizer(size=env_params['obs'], default_clip_range=self.args.clip_range)
-        self.g_norm = normalizer(size=env_params['goal'], default_clip_range=self.args.clip_range)
         # create the dict for store the model
         if MPI.COMM_WORLD.Get_rank() == 0:
             if not os.path.exists(self.args.save_dir):

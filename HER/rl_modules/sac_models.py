@@ -30,16 +30,17 @@ LOG_STD_MIN = -20
 
 clip_max = 3
 
-
+network_norm = nn.LayerNorm
+# network_norm = nn.BatchNorm1d
 
 class actor(nn.Module):
     def __init__(self, env_params):
         super(actor, self).__init__()
         self.max_action = env_params['action_max']
-        self.norm1 = nn.LayerNorm(env_params['obs'] + env_params['goal'])
+        self.norm1 = network_norm(env_params['obs'] + env_params['goal'])
         # self.norm1 = nn.LayerNorm(256)
-        self.norm2 = nn.LayerNorm(256)
-        self.norm3 = nn.LayerNorm(256)
+        self.norm2 = network_norm(256)
+        self.norm3 = network_norm(256)
         self.fc1 = nn.Linear(env_params['obs'] + env_params['goal'], 256)
         self.fc2 = nn.Linear(256, 256)
         self.fc3 = nn.Linear(256, 256)
@@ -129,9 +130,9 @@ class critic(nn.Module):
     def __init__(self, env_params):
         super(critic, self).__init__()
         self.max_action = env_params['action_max']
-        self.norm1 = nn.LayerNorm(env_params['obs'] + env_params['goal'] + env_params['action'])
-        self.norm2 = nn.LayerNorm(256)
-        self.norm3 = nn.LayerNorm(256)
+        self.norm1 = network_norm(env_params['obs'] + env_params['goal'] + env_params['action'])
+        self.norm2 = network_norm(256)
+        self.norm3 = network_norm(256)
         self.fc1 = nn.Linear(env_params['obs'] + env_params['goal'] + env_params['action'], 256)
         self.fc2 = nn.Linear(256, 256)
         self.fc3 = nn.Linear(256, 256)
@@ -154,9 +155,9 @@ class tdm_critic(nn.Module):
     def __init__(self, env_params):
         super(critic, self).__init__()
         self.max_action = env_params['action_max']
-        self.norm1 = nn.LayerNorm(env_params['obs'] + env_params['goal'] + env_params['action'])
-        self.norm2 = nn.LayerNorm(256)
-        self.norm3 = nn.LayerNorm(256)
+        self.norm1 = network_norm(env_params['obs'] + env_params['goal'] + env_params['action'])
+        self.norm2 = network_norm(256)
+        self.norm3 = network_norm(256)
         self.fc1 = nn.Linear(env_params['obs'] + env_params['goal'] + env_params['action'], 256)
         self.fc2 = nn.Linear(256, 256)
         self.fc3 = nn.Linear(256, 256)
@@ -234,7 +235,7 @@ class StateValueEstimator(nn.Module):
 
     def norm(self, o: torch.Tensor, g: torch.Tensor):
         return self.actor._get_norms(o,g)
-        
+
     def denorm(self, o: torch.Tensor, g: torch.Tensor):
         return self.actor._get_denorms(o,g)
     # def denorm_o(self, o: torch.Tensor):
