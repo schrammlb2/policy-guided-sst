@@ -53,8 +53,8 @@ class ddpg_agent:
         self.dense_reward_fn = lambda o, g, x=None: -np.mean((o-g)**2, axis=-1)*50**2
 
         # her sampler
-        # self.her_module = her_sampler(self.args.replay_strategy, self.args.replay_k, self.env.compute_reward)
-        self.her_module = her_sampler(self.args.replay_strategy, self.args.replay_k, self.dense_reward_fn)
+        self.her_module = her_sampler(self.args.replay_strategy, self.args.replay_k, self.env.compute_reward)
+        # self.her_module = her_sampler(self.args.replay_strategy, self.args.replay_k, self.dense_reward_fn)
         # create the replay buffer
         self.buffer = replay_buffer(self.env_params, self.args.buffer_size, self.her_module.sample_her_transitions)
         # create the normalizer
@@ -69,7 +69,8 @@ class ddpg_agent:
             if not os.path.exists(self.model_path):
                 os.mkdir(self.model_path)
 
-        self.negative_sampling = True
+        # self.negative_sampling = True
+        self.negative_sampling = False
         self.neg_lambda = .0001
         self.neg_std = 5.0
         self.neg_ave = 0
@@ -235,9 +236,17 @@ class ddpg_agent:
             # do the normalization
             # concatenate the stuffs
             actions_next, log_prob_next = self.actor_target_network(inputs_next_norm_tensor, with_logprob = True)
+            log_prob_next = log_prob_next.unsqueeze(dim=-1)
+            assert log_prob_next.shape == r_tensor.shape
             q_next_value = self.critic_target_network(inputs_next_norm_tensor, actions_next) + self.args.entropy_regularization*log_prob_next 
             q_next_value = q_next_value.detach()
-            target_q_value = r_tensor + self.args.gamma * q_next_value #* (-r_tensor) 
+            assert q_next_value.shape == r_tensor.shape
+
+            nonterminal = -self.env.compute_reward(transitions['g'],transitions['ag'], None)
+            nonterminal_tensor = torch.tensor(nonterminal, dtype=torch.float32).unsqueeze(dim=-1)
+            assert q_next_value.shape == nonterminal_tensor.shape
+
+            target_q_value = r_tensor + self.args.gamma * q_next_value*nonterminal_tensor #* (-r_tensor) 
             target_q_value = target_q_value.detach()
             # clip the q value
             clip_return = 1 / (1 - self.args.gamma)
@@ -259,7 +268,8 @@ class ddpg_agent:
         if self.negative_sampling:
             neg_q1, neg_q2 = self.critic_network.dual(negative_samples, negative_actions)
             cut_val = -50
-            reg_loss = self.neg_lambda*((cut_val - neg_q1)**2 + (cut_val - neg_q2)**2).mean()
+            # reg_loss = self.neg_lambda*((cut_val - neg_q1)**2 + (cut_val - neg_q2)**2).mean()
+            reg_loss = self.neg_lambda*(torch.abs(cut_val - neg_q1) + torch.abs(cut_val - neg_q2)).mean()
 
             critic_loss = q_loss + reg_loss
 
@@ -407,10 +417,11 @@ class ddpg_agent:
 
 
 
-    def print_gd_value_sequence(self, value_estimator, forced_state=None):
-        print("---------------------------------------------------------")
-        print("Gradient descent sequence")
-        print("---------------------------------------------------------")
+    def print_gd_value_sequence(self, value_estimator, forced_state=None, verbose = False):
+        if verbose:
+            print("---------------------------------------------------------")
+            print("Gradient descent sequence")
+            print("---------------------------------------------------------")
         observation = self.env.reset()
         def set_state(env, state):
             s = [0] + state.tolist()
@@ -442,7 +453,10 @@ class ddpg_agent:
             return sum([value_estimator(state + torch.normal(0.,.01, state.shape), 
                 normed_g, norm=False) for _ in range(n)])/n
 
+        initial_ag = ag
+        initial_goal = g
 
+        steps = 50
         if hill_climbing:
             # value = value_estimator(torch.tensor(obs, dtype=torch.float32), torch.tensor(g, dtype=torch.float32))
             # s = torch.tensor(obs, dtype=torch.float32)
@@ -450,8 +464,9 @@ class ddpg_agent:
             n=200
             # mean_val = lambda s: sum([value_estimator(s + torch.normal(0.,.03, s.shape), 
             #     torch.tensor(g, dtype=torch.float32)) for _ in range(n)])/n
-            print("AG: "+ str(ag) + "\tGoal: "+ str(g) + "\t Value: %2.2f \t Total Reward: %2.1f" % (value, total_r))
-            for _ in range(50):
+            if verbose: 
+                print("AG: "+ str(ag) + "\tGoal: "+ str(g) + "\t Value: %2.2f \t Total Reward: %2.1f" % (value, total_r))
+            for i in range(steps):
                 # rand_vec = [torch.normal(0.,.05, s.shape)*(self.std/self.n)[:-3] for _ in range(n)] + [torch.zeros(s.shape)]
                 rand_vec = [torch.normal(0.,.03, s.shape) for _ in range(n)] + [torch.zeros(s.shape)]
                 # vals = [-value_estimator(s + rand_vec[i], torch.tensor(g, dtype=torch.float32)).detach() for i in range(n+1)]
@@ -477,7 +492,8 @@ class ddpg_agent:
                 # value = value_estimator(torch.tensor(obs, dtype=torch.float32), torch.tensor(g, dtype=torch.float32))
                 # value = value_estimator(s, torch.tensor(g, dtype=torch.float32))
                 value = value_estimator(normed_s, normed_g, norm=False).detach()
-                print("AG: "+ str(ag) + "\tGoal: "+ str(g) + "\t Value: %2.2f \t Current reward: %4.2f \t Total Reward: %2.1f" % (value, current_reward, total_r))
+                if verbose: 
+                    print("AG: "+ str(ag) + "\tGoal: "+ str(g) + "\t Value: %2.2f \t Current reward: %4.2f \t Total Reward: %2.1f" % (value, current_reward, total_r))
 
         else:
             opt = torch.optim.SGD([normed_s], lr=.01)
@@ -485,16 +501,17 @@ class ddpg_agent:
             opt = torch.optim.Adam([normed_s], lr=.05)
                 # return sum([value_estimator(s + torch.normal(0.,.01, s.shape)*(std), 
                 # torch.tensor(g, dtype=torch.float32)) for _ in range(n)])/n
-            print("AG: "+ str(ag) + "\tGoal: "+ str(g) + "\t Value: %2.2f \t Total Reward: %2.1f" % (value, total_r))
-            for _ in range(50):
+            if verbose:
+                print("AG: "+ str(ag) + "\tGoal: "+ str(g) + "\t Value: %2.2f \t Total Reward: %2.1f" % (value, total_r))
+            for i in range(steps):
                 opt.zero_grad()
                 # value = value_estimator(s, torch.tensor(g, dtype=torch.float32))
-                value = value_estimator(normed_s, normed_g, norm=False)
-                # value = mean_val(normed_s)
+                # value = value_estimator(normed_s, normed_g, norm=False)
+                value = mean_val(normed_s)
                 # reg_loss = (((s - mean)/std)**2).sum()
                 # normed_s, normed_g = value_estimator.norm(s, torch.tensor(g, dtype=torch.float32))
-                # reg_loss = ((normed_s)**2).sum()
-                loss = -value #+ .1*reg_loss
+                reg_loss = ((normed_s)**2).sum()
+                loss = -value + 1*reg_loss
                 loss.backward()
                 # normed_s.grad*=std
                 opt.step()
@@ -514,4 +531,12 @@ class ddpg_agent:
 
                 value = value_estimator(torch.tensor(obs, dtype=torch.float32), torch.tensor(g, dtype=torch.float32))
                 # print("AG: "+ str(ag) + "\tGoal: "+ str(g) + "\t Value: %2.2f \t Total Reward: %2.1f" % (value, total_r))
-                print("AG: "+ str(ag) + "\tGoal: "+ str(g) + "\t Value: %2.2f \t Current reward: %2.2f \t Total Reward: %2.1f" % (value, current_reward, total_r))
+                if verbose: 
+                    print("AG: "+ str(ag) + "\tGoal: "+ str(g) + "\t Value: %2.2f \t Current reward: %2.2f \t Total Reward: %2.1f" % (value, current_reward, total_r))
+
+        print('-------------------------------------------------------------------')
+        print("Initial AG: " + str(initial_ag) + 
+            "\nDesired Goal: " + str(initial_goal) +
+            "\nFinal AG: " + str(ag) + 
+            "\tTotal reward: %2.1f" % (total_r))
+        return total_r

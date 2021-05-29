@@ -60,12 +60,12 @@ use_value_function = True
 # p_goal = .5
 # p_random = 0
 p_random = .1
-p_goal = 0
+p_goal = 1
 # p_random = .4
 # p_goal = .2
 # p_random = .3
 # p_goal = .4
-mean_GD_steps = 5#10
+mean_GD_steps = 3#10#5
 epsilon = 1/(1+mean_GD_steps)
 euclidean = False
 # euclidean = True
@@ -106,8 +106,8 @@ class FetchRobot:
         self.start_state = obs['observation'].tolist()
         self.goal = obs['desired_goal'].tolist()
         setattr(self.env, 'set_state', set_state)
-        # self.control_space = GymWrapperGoalConditionedControlSpace(self.env, self.goal, normalize_state_sampling=False)
-        self.control_space = GymWrapperGoalConditionedControlSpace(self.env, self.goal, normalize_state_sampling=True)
+        self.control_space = GymWrapperGoalConditionedControlSpace(self.env, self.goal, normalize_state_sampling=False)
+        # self.control_space = GymWrapperGoalConditionedControlSpace(self.env, self.goal, normalize_state_sampling=True)
 
         # def state_to_goal(state):
         #     env.sim.set_state_from_flattened(np.array(state))
@@ -138,10 +138,12 @@ class FetchRobot:
     def goalSet(self):
         return self.control_space.goal_set
 
-    def set_control_selector(self, agent_name):
+    def set_control_selector(self, agent_name, zero_buffer=True):
         if use_agent: 
-            agent = DDPGAgentWrapper(agent_loc + agent_name + goal_suffix, goal_conditioned=True, zero_buffer=False)
-            p2p_agent = DDPGAgentWrapper(agent_loc + agent_name + p2p_suffix, goal_conditioned=True, zero_buffer=False)
+            agent = DDPGAgentWrapper(agent_loc + agent_name + goal_suffix, 
+                goal_conditioned=True, zero_buffer=zero_buffer)
+            p2p_agent = DDPGAgentWrapper(agent_loc + agent_name + p2p_suffix, 
+                goal_conditioned=True, zero_buffer=zero_buffer)
             # def make_control_selector(controlSpace,metric,numSamples):
             #     return RLAgentControlSelector(controlSpace,metric,numSamples, rl_agent = agent, p2p_agent=p2p_agent,
             #         p_goal = p_goal, p_random=p_random, goal=self.goal)
@@ -172,7 +174,7 @@ class FetchRobot:
                 # return RLAgentControlSelector(controlSpace,metric,numSamples, rl_agent = agent, p_goal = 0, p_random=1, goal=goal)
             self.control_space.heuristic = heuristic
 
-    def set_value_function(self, value_function_name):
+    def set_value_function(self, value_function_name, zero_buffer=True):
         if use_value_function: 
             cs = self.configurationSpace()
             goal_filename = agent_loc + value_function_name + value_function_infix + goal_suffix
@@ -188,7 +190,11 @@ class FetchRobot:
 
             # value = lambda x: goal_value(x) + p2p_value(x)**.5
             # gd_sampler = GDValueSampler(cs, goal_value, start_state, goal, epsilon=epsilon)
-            gd_sampler = GDValueSampler(cs, goal_value, p2p_value, start_state, goal, epsilon=epsilon, zero_buffer=False)
+            # gd_sampler = GDValueSampler(cs, goal_value, p2p_value, start_state, goal, 
+            #     epsilon=epsilon, zero_buffer=False)
+            gd_sampler = GDValueSampler(cs, goal_value, p2p_value, start_state, goal, 
+                norm = goal_value.norm, denorm = goal_value.denorm,
+                epsilon=epsilon, zero_buffer=zero_buffer)
             # gd_sampler = GDValueSampler(cs, value, start_state, goal, epsilon=epsilon)
             # self.control_space.configuration_space = gd_sampler
             self.control_space.configuration_sampler = gd_sampler
@@ -197,47 +203,51 @@ class FetchRobot:
 
 class FetchReach(FetchRobot): 
     def __init__(self):
+        zero_buffer = False
         self.env = FetchReachEnv()
         agent_name = "FetchReach"
         self.env_name = agent_name
         self.setup()
-        self.set_control_selector(agent_name)
+        self.set_control_selector(agent_name, zero_buffer=zero_buffer)
         self.set_heuristic(agent_name)
-        self.set_value_function(agent_name)
+        self.set_value_function(agent_name, zero_buffer=zero_buffer)
 
 class FetchPush(FetchRobot): 
     def __init__(self):
+        zero_buffer = True
         self.env = FetchPushEnv()
         agent_name = "FetchPush"
         self.env_name = agent_name
         self.setup()
-        self.set_control_selector(agent_name)
+        self.set_control_selector(agent_name, zero_buffer=zero_buffer)
         self.set_heuristic(agent_name)
-        self.set_value_function(agent_name)
+        self.set_value_function(agent_name, zero_buffer=zero_buffer)
 
 
 
 class FetchSlide(FetchRobot): 
     def __init__(self):
+        zero_buffer = True
         self.env = FetchSlideEnv()
         agent_name = "FetchSlide"
         self.env_name = agent_name
         self.setup()
-        self.set_control_selector(agent_name)
+        self.set_control_selector(agent_name, zero_buffer=zero_buffer)
         self.set_heuristic(agent_name)
-        self.set_value_function(agent_name)
+        self.set_value_function(agent_name, zero_buffer=zero_buffer)
 
 
 
 class FetchPickAndPlace(FetchRobot): 
     def __init__(self):
+        zero_buffer = True
         self.env = FetchPickAndPlaceEnv()
         agent_name = "FetchPickAndPlace"
         self.env_name = agent_name
         self.setup()
-        self.set_control_selector(agent_name)
+        self.set_control_selector(agent_name, zero_buffer=zero_buffer)
         self.set_heuristic(agent_name)
-        self.set_value_function(agent_name)
+        self.set_value_function(agent_name, zero_buffer=zero_buffer)
 
 # def fetch_reach_test():
 #     print("Testing gym pendulum")

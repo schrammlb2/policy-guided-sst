@@ -640,6 +640,120 @@ class GDValueSampler(ConfigurationSpace):
 
 
 
+class GDValueSampler(ConfigurationSpace):
+    def __init__(self, configurationSpace, goal_value, p2p_value, start_state, goal, 
+        norm=None, denorm=None, epsilon=.5, zero_buffer=True):
+        self.configurationSpace = configurationSpace
+        self.goal_value = goal_value
+        self.p2p_value = p2p_value
+        self.start_state = start_state
+        self.goal = goal
+        self.epsilon = epsilon
+        self.total = 0
+        self.n = 1
+        self.zero_buffer = zero_buffer
+        from pomp.example_problems.robotics.fetch.reach import FetchReachEnv
+        self.env = FetchReachEnv()
+        self.env.reset()
+
+        if type(norm) == type(None):
+            self.norm = lambda x, y: (x, y)
+            assert False
+        else: 
+            self.norm = norm
+        if type(denorm) == type(None):
+            self.denorm = lambda x, y: (x, y)
+            assert False
+        else: 
+            self.denorm = denorm
+
+
+    def sample(self) -> list:
+        k = np.random.geometric(self.epsilon) - 1
+
+        # sample = self.configurationSpace.sample()
+        # sample_norm, g_norm = self.norm(torch.tensor(sample, dtype=torch.float32), 
+        #                                 torch.tensor(self.goal, dtype=torch.float32))
+
+        #configuration space sampler is standard gaussian
+        sample_norm = torch.tensor(self.configurationSpace.sample(), dtype=torch.float32)
+        _ , g_norm = self.norm(sample_norm, torch.tensor(self.goal, dtype=torch.float32))
+
+        s0 = sample_norm.detach().clone()
+        s_norm = sample_norm.detach().requires_grad_()
+        start_norm, _ = self.norm(   torch.tensor(self.start_state, dtype=torch.float32), 
+                                    torch.tensor(self.goal, dtype=torch.float32))
+        start_tensor = torch.tensor(self.start_state, dtype=torch.float32)
+        opt = torch.optim.Adam([s_norm], lr=.05)
+
+        constraint_constant = 30
+
+        # with torch.no_grad(): 
+        #     l0 = - self.p2p_value(start_tensor, s)-self.goal_value(s, goal_tensor)
+        with torch.no_grad(): 
+            # g = self.goal_value(s, goal_tensor)
+            # p2p = self.p2p_value(start_tensor, s)
+            g = self.goal_value(s_norm, g_norm, norm=False)
+            p2p = self.p2p_value(start_norm, s_norm, norm=False)
+            total = g + p2p
+            r = g/total
+
+        traj = [s0]
+
+
+        def state_to_goal(state):
+            assert type(state) == list
+            self.env.sim.set_state_from_flattened(np.array([0] + state))
+            self.env.sim.forward()
+            obs = self.env._get_obs()
+            return obs['achieved_goal']
+
+        for i in range(k):
+            opt.zero_grad()
+            # g = self.goal_value(s, goal_tensor)
+            # p2p = self.p2p_value(start_tensor, s)
+            g = self.goal_value(s_norm, g_norm, norm=False)
+            s, _ = self.denorm(s_norm, g_norm)
+            p2p = self.p2p_value(start_tensor, s)
+            # p2p = self.p2p_value(start_norm, s_norm, norm=False)
+            total = g + p2p
+            var_r = g/total
+            reg_loss = 1*(s_norm**2).sum()
+            # loss = -total + constraint_constant*(var_r-r)**2
+            loss = -total #+ reg_loss
+            # loss = -g
+            loss.backward()
+            # import pdb
+            # pdb.set_trace()
+            opt.step()
+            traj.append(s_norm.clone().detach())
+
+        # if k > 10: 
+        #     # l1 = - self.p2p_value(start_tensor, s)-self.goal_value(s, goal_tensor) 
+        #     # self.total += (l0 - l1).sum()/k
+        #     # self.n += 1
+        #     # print(self.total/self.n)
+        #     from ..spaces.plot_gd_sample import plot_gd
+        #     ee_traj = [state_to_goal(t.numpy().tolist()) for t in traj]
+        #     ee_start = state_to_goal(self.start_state)
+        #     # plot_gd(self.start_state, traj, self.goal)
+        #     plot_gd(ee_start, ee_traj, self.goal)
+
+        s, _ = self.denorm(s_norm, g_norm)
+
+        if self.zero_buffer: 
+            rv = s.detach().numpy().tolist()[1:]
+        else: 
+            rv = s.detach().numpy().tolist()
+        # assert len(rv) == 30
+        return rv
+
+
+    def contains(self, x: list) -> bool:
+        return self.configurationSpace.contains(x)
+
+
+
 
 class GymWrapperActionSet(Set):
     def __init__(self, action_space):

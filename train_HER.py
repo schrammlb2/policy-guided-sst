@@ -93,8 +93,8 @@ if __name__ == '__main__':
         from HER.rl_modules.p2p_agent import ddpg_agent
         suffix = "_p2p"
     else: 
-        # from HER.rl_modules.sac_agent import ddpg_agent
-        from HER.rl_modules.neg_sample import ddpg_agent
+        from HER.rl_modules.sac_agent import ddpg_agent
+        # from HER.rl_modules.neg_sample import ddpg_agent
         suffix = ""
 
     agent = launch(args)
@@ -118,15 +118,23 @@ if __name__ == '__main__':
     #     print("Loaded value_estimator")
     # agent.actor_network = value_estimator.actor
 
-    agent.print_value_sequence(value_estimator)
-    agent.print_gd_value_sequence(value_estimator)
-
-    # with open("saved_models/her_" + args.env_name + suffix + ".pkl", 'wb') as f:
-    #     pickle.dump(agent.actor_network, f)
-    #     print("Saved agent")
 
 
-    # with open("saved_models/her_" + args.env_name + "_value" + suffix + ".pkl", 'wb') as f:
-    #     pickle.dump(value_estimator, f)
-    #     print("Saved value estimator")
+    # agent.print_value_sequence(value_estimator)
+    # n = 10
+    # rewards = []
+    # for i in range(n):
+    #     rewards.append(agent.print_gd_value_sequence(value_estimator))
+    # print("Average reward: " + str(sum(rewards)/n))
+
+
+
+    with open("saved_models/her_" + args.env_name + suffix + ".pkl", 'wb') as f:
+        pickle.dump(agent.actor_network, f)
+        print("Saved agent")
+
+
+    with open("saved_models/her_" + args.env_name + "_value" + suffix + ".pkl", 'wb') as f:
+        pickle.dump(value_estimator, f)
+        print("Saved value estimator")
 
