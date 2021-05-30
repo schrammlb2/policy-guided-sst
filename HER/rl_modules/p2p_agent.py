@@ -59,7 +59,10 @@ class ddpg_agent:
         # self.sparse_reward_fn = lambda o, g, x=None: (np.all(np.abs(o-g)/scale < 1, axis=-1)) -1
         # self.sparse_reward_fn = lambda o, g, x=None: (np.sum(np.abs(o-g), axis=-1)/(scale*o.shape[0]) < 1) -1
         # self.dense_reward_fn = lambda o, g, x=None: -np.mean((o-g)**2, axis=-1)**.5*50
-        self.dense_reward_fn = lambda o, g, x=None: -np.mean((self.o_norm(o)-self.g_norm(g))**2, axis=-1)**.5
+        self.dense_reward_fn = lambda o, g, x=None: -np.mean(
+            (self.o_norm.normalize(o)-self.g_norm.normalize(g))**2
+            , axis=-1)**.5
+        # self.sparse_reward_fn = lambda o, g, x=None: (-self.dense_reward_fn(o, g) < scale) - 1
 
         # her sampler
         # self.her_module = her_sampler(self.args.replay_strategy, self.args.replay_k, self.env.compute_reward)
@@ -95,7 +98,15 @@ class ddpg_agent:
                     # g = observation['desired_goal']
                     ag =  observation['observation']
                     # g = self.observation_space.sample()
+
                     g = sample_valid_goal(self.env)
+
+                    # if epoch < 1: 
+                    #     g = sample_valid_goal(self.env)
+                    # else:
+                    #     g = self.sample_random_goal()
+                    # g = self.sample_random_goal()
+
                     # start to collect samples
                     for t in range(self.env_params['max_timesteps']):
                         with torch.no_grad():
@@ -141,6 +152,10 @@ class ddpg_agent:
                 print('[{}] epoch is: {}, eval success rate is: {:.3f}'.format(datetime.now(), epoch, success_rate))
                 torch.save([self.o_norm.mean, self.o_norm.std, self.g_norm.mean, self.g_norm.std, self.actor_network.state_dict()], \
                             self.model_path + '/model.pt')
+
+    def sample_random_goal(self): 
+        sample = np.random.randn(self.env_params['goal'])
+        return self.g_norm.denormalize(sample)
 
     # pre_process the inputs
     def _preproc_inputs(self, obs, g):
@@ -282,6 +297,7 @@ class ddpg_agent:
             # g = observation['desired_goal']
             # g = self.observation_space.sample()
             g = sample_valid_goal(self.env)
+            # g = self.sample_random_goal()
             total_r = 0
             for _ in range(self.env_params['max_timesteps']):
                 with torch.no_grad():
