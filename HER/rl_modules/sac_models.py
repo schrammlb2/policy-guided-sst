@@ -111,6 +111,12 @@ class actor(nn.Module):
         g_norm = self.g_norm.normalize(g)
         return obs_norm, g_norm
 
+
+    def _get_denorms(self, obs, g):
+        obs_denorm = self.o_norm.denormalize(obs)
+        g_denorm = self.g_norm.denormalize(g)
+        return obs_denorm, g_denorm
+        
     def normed_forward(self, obs, g, deterministic=False): 
         obs_norm, g_norm = self._get_norms(torch.tensor(obs, dtype=torch.float32), torch.tensor(g, dtype=torch.float32))
         # concatenate the stuffs
@@ -187,19 +193,38 @@ class StateValueEstimator(nn.Module):
         # ratio = -.99*torch.clip(q/max_q, -1,0) #.99 for numerical stability
         return torch.log(1+q*(1-self.gamma)*.998)/torch.log(torch.tensor(self.gamma))
 
-    def forward(self, o: torch.Tensor, g: torch.Tensor): 
+    # def forward(self, o: torch.Tensor, g: torch.Tensor): 
+    #     assert type(o) == torch.Tensor
+    #     assert type(g) == torch.Tensor
+    #     obs_norm, g_norm = self.actor._get_norms(o,g)
+    #     inputs = torch.cat([obs_norm, g_norm])
+    #     inputs = inputs.unsqueeze(0)
+
+    #     action = self.actor(inputs)
+    #     value = self.critic(inputs, action).squeeze()
+
+    #     # return self.q2time(value)
+    #     return value
+
+    def forward(self, o: torch.Tensor, g: torch.Tensor, norm=True): 
         assert type(o) == torch.Tensor
         assert type(g) == torch.Tensor
-        obs_norm, g_norm = self.actor._get_norms(o,g)
+        if norm: 
+            obs_norm, g_norm = self.actor._get_norms(o,g)
+        else: 
+            obs_norm, g_norm = o, g
         inputs = torch.cat([obs_norm, g_norm])
         inputs = inputs.unsqueeze(0)
 
         action = self.actor(inputs)
         value = self.critic(inputs, action).squeeze()
-
-        # return self.q2time(value)
         return value
 
+    def norm(self, o: torch.Tensor, g: torch.Tensor):
+        return self.actor._get_norms(o,g)
+        
+    def denorm(self, o: torch.Tensor, g: torch.Tensor):
+        return self.actor._get_denorms(o,g)
 
 # class SquashedGaussianMLPActor(nn.Module):
 

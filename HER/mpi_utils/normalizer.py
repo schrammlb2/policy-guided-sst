@@ -16,7 +16,10 @@ class torch_normalizer:
         if clip_range is None:
             clip_range = self.default_clip_range
         return torch.clip((v - self.mean) / (self.std), -clip_range, clip_range)
-        return np.clip((v - self.mean) / (self.std), -clip_range, clip_range)
+        # return np.clip((v - self.mean) / (self.std), -clip_range, clip_range)
+        
+    def denormalize(self, v):
+        return v*self.std + self.mean
 
 
 
@@ -87,6 +90,9 @@ class normalizer:
         if clip_range is None:
             clip_range = self.default_clip_range
         return np.clip((v - self.mean) / (self.std), -clip_range, clip_range)
+
+    def denormalize(self, v):
+        return v*self.std + self.mean
 
     def get_torch_normalizer(self): 
         return torch_normalizer(self.mean, self.std, self.default_clip_range)

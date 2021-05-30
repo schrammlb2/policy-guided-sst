@@ -58,13 +58,13 @@ use_heuristic = True
 use_value_function = True
 # use_value_function = False
 # p_goal = .5
-# p_random = 0
+p_random = 0
 # p_random = .5
-# p_goal = 1
+p_goal = 1
 # p_random = .4
 # p_goal = .2
-p_random = .3
-p_goal = .4
+# p_random = .3
+# p_goal = .4
 mean_GD_steps = 100#10
 epsilon = 1/(1+mean_GD_steps)
 # agent_loc = "saved_models/her_mod_"
@@ -78,10 +78,15 @@ heuristic_infix = "_distance"
 value_function_infix = "_value"
 # agent_suffix = "_p2p.pkl"
 
+zero_buffer = False
+
 
 
 def set_state(self, state):
-    self.sim.set_state_from_flattened(np.array([0] + list(state)))
+    if zero_buffer: 
+        self.sim.set_state_from_flattened(np.array([0] + list(state)))
+    else:
+        self.sim.set_state_from_flattened(np.array(state))
     self.sim.forward()
 
 def state_to_goal(self, state):
@@ -174,7 +179,9 @@ class FetchRobot:
 
             # value = lambda x: goal_value(x) + p2p_value(x)**.5
             # gd_sampler = GDValueSampler(cs, goal_value, start_state, goal, epsilon=epsilon)
-            gd_sampler = GDValueSampler(cs, goal_value, p2p_value, start_state, goal, epsilon=epsilon)
+            # gd_sampler = GDValueSampler(cs, goal_value, p2p_value, start_state, goal, epsilon=epsilon)
+            gd_sampler = GDValueSampler(cs, goal_value, p2p_value, start_state, goal, epsilon=epsilon, 
+                norm=goal_value.norm, denorm=goal_value.denorm, zero_buffer=zero_buffer)
             # gd_sampler = GDValueSampler(cs, value, start_state, goal, epsilon=epsilon)
             # self.control_space.configuration_space = gd_sampler
             self.control_space.configuration_sampler = gd_sampler

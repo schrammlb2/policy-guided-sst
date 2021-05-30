@@ -370,6 +370,101 @@ class GymWrapperActionSet(Set):
             # pdb.set_trace()
 
 
+
+class GDValueSampler(ConfigurationSpace):
+    def __init__(self, configurationSpace, goal_value, p2p_value, start_state, goal, 
+        norm=None, denorm=None, epsilon=.5, zero_buffer=True):
+        self.configurationSpace = configurationSpace
+        self.goal_value = goal_value
+        self.p2p_value = p2p_value
+        self.start_state = start_state
+        self.goal = goal
+        self.epsilon = epsilon
+        self.total = 0
+        self.n = 1
+        self.zero_buffer = zero_buffer
+        from pomp.example_problems.robotics.fetch.reach import FetchReachEnv
+        self.env = FetchReachEnv()
+        self.env.reset()
+
+        if type(norm) == type(None):
+            self.norm = lambda x, y: (x, y)
+            assert False
+        else: 
+            self.norm = norm
+        if type(denorm) == type(None):
+            self.denorm = lambda x, y: (x, y)
+            assert False
+        else: 
+            self.denorm = denorm
+
+
+    def sample(self) -> list:
+        k = np.random.geometric(self.epsilon) - 1
+
+        #configuration space sampler is standard gaussian
+        if self.zero_buffer: 
+            sample_norm = torch.tensor([0] + self.configurationSpace.sample(), dtype=torch.float32)
+            start_norm, g_norm = self.norm(torch.tensor([0] + self.start_state, dtype=torch.float32), 
+                                        torch.tensor(self.goal, dtype=torch.float32))
+            start_tensor = torch.tensor([0] + self.start_state, dtype=torch.float32)
+        else:
+            sample_norm = torch.tensor(self.configurationSpace.sample(), dtype=torch.float32)
+            start_norm, g_norm = self.norm(   torch.tensor(self.start_state, dtype=torch.float32), 
+                                        torch.tensor(self.goal, dtype=torch.float32))
+            start_tensor = torch.tensor(self.start_state, dtype=torch.float32)
+
+        s0 = sample_norm.detach().clone()
+        s_norm = sample_norm.detach().requires_grad_()
+        opt = torch.optim.Adam([s_norm], lr=.05)
+
+        constraint_constant = 30
+
+        with torch.no_grad(): 
+            g = self.goal_value(s_norm, g_norm, norm=False)
+            p2p = self.p2p_value(start_norm, s_norm, norm=False)
+            total = g + p2p
+            r = g/total
+
+        traj = [s0]
+
+
+        def state_to_goal(state):
+            assert type(state) == list
+            self.env.sim.set_state_from_flattened(np.array([0] + state))
+            self.env.sim.forward()
+            obs = self.env._get_obs()
+            return obs['achieved_goal']
+
+        for i in range(k):
+            opt.zero_grad()
+            g = self.goal_value(s_norm, g_norm, norm=False)
+            s, _ = self.denorm(s_norm, g_norm)
+            p2p = self.p2p_value(start_tensor, s)
+            total = g + p2p
+            var_r = g/total
+            reg_loss = 1*(s_norm**2).sum()
+            # loss = -total + constraint_constant*(var_r-r)**2
+            loss = -total #+ reg_loss
+
+            loss.backward()
+            opt.step()
+            traj.append(s_norm.clone().detach())
+
+        s, _ = self.denorm(s_norm, g_norm)
+
+        if self.zero_buffer: 
+            rv = s.detach().numpy().tolist()[1:]
+        else: 
+            rv = s.detach().numpy().tolist()
+
+        return rv
+
+
+    def contains(self, x: list) -> bool:
+        return self.configurationSpace.contains(x)
+
+
 class RLAgentControlSelector(ControlSelector):
     """A ControlSelector that randomly samples numSamples controls
     and finds the one that is closest to the destination, according
@@ -497,12 +592,14 @@ class RLAgentControlSelector(ControlSelector):
         #     return sequence
 
 class RLAgentWrapper:
-    def __init__(self, filename, goal_conditioned = True):
+    def __init__(self, filename, goal_conditioned = True, zero_buffer=False):
+        print('Opening policy at location ' + filename)
         with open(filename, 'rb') as f:
             self.agent = pickle.load(f)
 
         self.agent.eval()
         self.goal_conditioned = goal_conditioned
+        self.zero_buffer = zero_buffer
 
     def sample(self, x, goal): 
         raise NotImplementedError
@@ -526,12 +623,11 @@ class DDPGAgentWrapper(RLAgentWrapper):
     def sample(self, x, goal): 
         x_tensor = torch.tensor(x).unsqueeze(dim=0)
         if self.goal_conditioned: 
-            # return_value = normed_forward(self, obs, g, deterministic=False)[0].detach().tolist()
-            # return_value = self.agent.normed_forward(x, goal, deterministic=True)[0].detach().tolist()
-            return_value = self.agent.normed_forward(x, goal, deterministic=False)[0].detach().tolist()
-            # goal_tensor = torch.tensor(goal).unsqueeze(dim=0)
-            # inpt = torch.cat((x_tensor, goal_tensor), dim=-1)
-            # return_value = self.agent(inpt)[0].detach().tolist()
+            if self.zero_buffer:
+                obs = [0] + x
+            else:
+                obs = x
+            return_value = self.agent.normed_forward(obs, goal, deterministic=False)[0].detach().tolist()
         else:
             return_value =  self.agent(x_tensor)[0].detach().tolist()
 
