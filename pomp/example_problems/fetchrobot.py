@@ -81,7 +81,7 @@ value_function_infix = "_value"
 
 
 def set_state(self, state):
-    self.sim.set_state_from_flattened(np.array(state))
+    self.sim.set_state_from_flattened(np.array([0] + list(state)))
     self.sim.forward()
 
 def state_to_goal(self, state):
