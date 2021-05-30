@@ -676,14 +676,19 @@ class GDValueSampler(ConfigurationSpace):
         #                                 torch.tensor(self.goal, dtype=torch.float32))
 
         #configuration space sampler is standard gaussian
-        sample_norm = torch.tensor(self.configurationSpace.sample(), dtype=torch.float32)
-        _ , g_norm = self.norm(sample_norm, torch.tensor(self.goal, dtype=torch.float32))
+        if self.zero_buffer: 
+            sample_norm = torch.tensor([0] + self.configurationSpace.sample(), dtype=torch.float32)
+            start_norm, g_norm = self.norm(torch.tensor([0] + self.start_state, dtype=torch.float32), 
+                                        torch.tensor(self.goal, dtype=torch.float32))
+            start_tensor = torch.tensor([0] + self.start_state, dtype=torch.float32)
+        else:
+            sample_norm = torch.tensor(self.configurationSpace.sample(), dtype=torch.float32)
+            start_norm, g_norm = self.norm(   torch.tensor(self.start_state, dtype=torch.float32), 
+                                        torch.tensor(self.goal, dtype=torch.float32))
+            start_tensor = torch.tensor(self.start_state, dtype=torch.float32)
 
         s0 = sample_norm.detach().clone()
         s_norm = sample_norm.detach().requires_grad_()
-        start_norm, _ = self.norm(   torch.tensor(self.start_state, dtype=torch.float32), 
-                                    torch.tensor(self.goal, dtype=torch.float32))
-        start_tensor = torch.tensor(self.start_state, dtype=torch.float32)
         opt = torch.optim.Adam([s_norm], lr=.05)
 
         constraint_constant = 30

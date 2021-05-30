@@ -57,15 +57,15 @@ use_agent = True
 use_heuristic = True
 use_value_function = True
 # use_value_function = False
-# p_goal = .5
-# p_random = 0
-p_random = .1
-p_goal = 1
+p_goal = .5
+p_random = .5
+# p_random = .1
+# p_goal = .3
 # p_random = .4
 # p_goal = .2
 # p_random = .3
 # p_goal = .4
-mean_GD_steps = 3#10#5
+mean_GD_steps = 0
 epsilon = 1/(1+mean_GD_steps)
 euclidean = False
 # euclidean = True
@@ -106,8 +106,8 @@ class FetchRobot:
         self.start_state = obs['observation'].tolist()
         self.goal = obs['desired_goal'].tolist()
         setattr(self.env, 'set_state', set_state)
-        self.control_space = GymWrapperGoalConditionedControlSpace(self.env, self.goal, normalize_state_sampling=False)
-        # self.control_space = GymWrapperGoalConditionedControlSpace(self.env, self.goal, normalize_state_sampling=True)
+        # self.control_space = GymWrapperGoalConditionedControlSpace(self.env, self.goal, normalize_state_sampling=False)
+        self.control_space = GymWrapperGoalConditionedControlSpace(self.env, self.goal, normalize_state_sampling=True)
 
         # def state_to_goal(state):
         #     env.sim.set_state_from_flattened(np.array(state))
