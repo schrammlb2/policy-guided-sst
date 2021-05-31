@@ -144,7 +144,7 @@ class GymWrapperConfigurationSpace(ConfigurationSpace):
         # self.n
 
 
-    def sample(self) -> list:
+    def _sample(self) -> list:
         samp = self.observation_space.sample()
 
         if type(samp) is np.ndarray: 
@@ -178,6 +178,9 @@ class GymWrapperConfigurationSpace(ConfigurationSpace):
                 return return_samp
         return return_samp
 
+    def sample(self) -> list:
+        self._sample()
+        
     def contains(self, x: list) -> bool:
         # import pdb
         # pdb.set_trace()
@@ -676,17 +679,33 @@ class GDValueSampler(ConfigurationSpace):
         #                                 torch.tensor(self.goal, dtype=torch.float32))
 
         #configuration space sampler is standard gaussian
-        if self.zero_buffer: 
-            sample_norm = torch.tensor([0] + self.configurationSpace.sample(), dtype=torch.float32)
-            start_norm, _ = self.norm(torch.tensor([0] + self.start_state, dtype=torch.float32), 
+        if self.zero_buffer:
+            # sample_norm = torch.tensor([0] + self.configurationSpace.sample(), dtype=torch.float32)
+            sample_norm, g_norm = self.norm(torch.tensor([0] + self.configurationSpace.sample(), dtype=torch.float32), 
+                                        torch.tensor(self.goal, dtype=torch.float32))
+            # sample_norm = torch.tensor([0] + np.random.randn(self.shape), dtype=torch.float32)
+            start_norm, g_norm = self.norm(torch.tensor([0] + self.start_state, dtype=torch.float32), 
                                         torch.tensor(self.goal, dtype=torch.float32))
             start_tensor = torch.tensor([0] + self.start_state, dtype=torch.float32)
-        else: 
-            sample_norm = torch.tensor(self.configurationSpace.sample(), dtype=torch.float32)
-            start_norm, _ = self.norm(   torch.tensor(self.start_state, dtype=torch.float32), 
+        else:
+            # sample_norm = torch.tensor(self.configurationSpace.sample(), dtype=torch.float32)
+            # sample_norm = torch.tensor(np.random.randn(self.shape), dtype=torch.float32)
+            sample_norm, g_norm = self.norm(torch.tensor(self.configurationSpace.sample(), dtype=torch.float32), 
+                                        torch.tensor(self.goal, dtype=torch.float32))
+            start_norm, g_norm = self.norm(   torch.tensor(self.start_state, dtype=torch.float32), 
                                         torch.tensor(self.goal, dtype=torch.float32))
             start_tensor = torch.tensor(self.start_state, dtype=torch.float32)
-        _ , g_norm = self.norm(sample_norm, torch.tensor(self.goal, dtype=torch.float32))
+        # if self.zero_buffer: 
+        #     sample_norm = torch.tensor([0] + self.configurationSpace.sample(), dtype=torch.float32)
+        #     start_norm, _ = self.norm(torch.tensor([0] + self.start_state, dtype=torch.float32), 
+        #                                 torch.tensor(self.goal, dtype=torch.float32))
+        #     start_tensor = torch.tensor([0] + self.start_state, dtype=torch.float32)
+        # else: 
+        #     sample_norm = torch.tensor(self.configurationSpace.sample(), dtype=torch.float32)
+        #     start_norm, _ = self.norm(   torch.tensor(self.start_state, dtype=torch.float32), 
+        #                                 torch.tensor(self.goal, dtype=torch.float32))
+        #     start_tensor = torch.tensor(self.start_state, dtype=torch.float32)
+        # _ , g_norm = self.norm(sample_norm, torch.tensor(self.goal, dtype=torch.float32))
 
         s0 = sample_norm.detach().clone()
         s_norm = sample_norm.detach().requires_grad_()

@@ -177,7 +177,7 @@ class tdm_critic(nn.Module):
         return q_value
 
 
-    def forward(self, x, actions):
+    def vec_forward(self, x, actions):
         x = torch.cat([x, actions / self.max_action], dim=1)
         x = self.norm1(x)
         x = torch.clip(x, -clip_max, clip_max)
