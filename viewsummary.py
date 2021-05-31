@@ -101,7 +101,7 @@ with open(sys.argv[1],'r') as f:
         if label not in items: continue
         plot = items[label]
         if len(items[label])==0:
-            print("Skipping item",label
+            print("Skipping item",label)
         x,y = zip(*plot)
         minx = min(minx,*[v for v in x if v is not None])
         maxx = max(maxx,*[v for v in x if v is not None])

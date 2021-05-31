@@ -20,7 +20,7 @@ import copy
 import sys
 import os,errno
 
-numTrials = 10
+numTrials = 20
 
 def mkdir_p(path):
     """Quiet path making"""
