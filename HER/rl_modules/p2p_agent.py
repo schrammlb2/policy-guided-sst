@@ -58,10 +58,10 @@ class ddpg_agent:
         self.sparse_reward_fn = lambda o, g, x=None: (np.mean(np.abs(o-g), axis=-1)/scale < 1) -1
         # self.sparse_reward_fn = lambda o, g, x=None: (np.all(np.abs(o-g)/scale < 1, axis=-1)) -1
         # self.sparse_reward_fn = lambda o, g, x=None: (np.sum(np.abs(o-g), axis=-1)/(scale*o.shape[0]) < 1) -1
-        # self.dense_reward_fn = lambda o, g, x=None: -np.mean((o-g)**2, axis=-1)**.5*50
-        self.dense_reward_fn = lambda o, g, x=None: -np.mean(
-            (self.o_norm.normalize(o)-self.g_norm.normalize(g))**2
-            , axis=-1)**.5
+        self.dense_reward_fn = lambda o, g, x=None: -np.mean((o-g)**2, axis=-1)**.5*50
+        # self.dense_reward_fn = lambda o, g, x=None: -np.mean(
+        #     (self.o_norm.normalize(o)-self.g_norm.normalize(g))**2
+        #     , axis=-1)**.5
         # self.sparse_reward_fn = lambda o, g, x=None: (-self.dense_reward_fn(o, g) < scale) - 1
 
         # her sampler
