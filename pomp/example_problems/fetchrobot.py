@@ -20,6 +20,7 @@ from pomp.example_problems.robotics.fetch.push import FetchPushEnv
 from pomp.example_problems.robotics.fetch.slide import FetchSlideEnv
 from pomp.example_problems.robotics.fetch.pick_and_place import FetchPickAndPlaceEnv
 from train_distance_function import net
+import torch
 
 
 """
@@ -65,7 +66,7 @@ p_goal = 1
 # p_goal = .2
 # p_random = .3
 # p_goal = .4
-mean_GD_steps = 100#10
+mean_GD_steps = 3#100#10
 epsilon = 1/(1+mean_GD_steps)
 # agent_loc = "saved_models/her_mod_"
 agent_loc = "saved_models/her_"
@@ -177,13 +178,27 @@ class FetchRobot:
             start_state = self.start_state
             goal = self.goal
 
-            # value = lambda x: goal_value(x) + p2p_value(x)**.5
-            # gd_sampler = GDValueSampler(cs, goal_value, start_state, goal, epsilon=epsilon)
-            # gd_sampler = GDValueSampler(cs, goal_value, p2p_value, start_state, goal, epsilon=epsilon)
             gd_sampler = GDValueSampler(cs, goal_value, p2p_value, start_state, goal, epsilon=epsilon, 
                 norm=goal_value.norm, denorm=goal_value.denorm, zero_buffer=zero_buffer)
-            # gd_sampler = GDValueSampler(cs, value, start_state, goal, epsilon=epsilon)
-            # self.control_space.configuration_space = gd_sampler
+
+
+            from ..spaces import metric
+            # dist = lambda x, y: metric.euclideanMetric(x[1:15] + x[31:], y[1:15] + y[31:]) + metric.euclideanMetric(x[1:], y[1:])/5
+            # dist = lambda x, y: metric.euclideanMetric(x[:14] + x[30:], y[:14] + y[30:]) + metric.euclideanMetric(x, y)/5
+            # dist = lambda x, y: 
+            def dist(x,y):
+                x_norm = goal_value.norm(torch.tensor(x), torch.tensor(goal))[0].tolist()
+                y_norm = goal_value.norm(torch.tensor(y), torch.tensor(goal))[0].tolist()
+                return metric.euclideanMetric(x_norm[1:15] + x_norm[31:], y_norm[1:15] + y_norm[31:]) 
+                # return metric.euclideanMetric(x_norm, y_norm) 
+
+            def normed_sample():
+                samp = torch.tensor(self.control_space.configuration_space._sample())#*2
+                return goal_value.denorm(samp, torch.tensor(goal))[0].tolist()
+
+            # setattr(self.control_space.configuration_space, 'distance', dist)
+            setattr(self.control_space.configuration_space, 'sample', normed_sample)
+
             self.control_space.configuration_sampler = gd_sampler
 
 

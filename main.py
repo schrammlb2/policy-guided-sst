@@ -20,7 +20,7 @@ import copy
 import sys
 import os,errno
 
-numTrials = 20
+numTrials = 10
 
 def mkdir_p(path):
     """Quiet path making"""
@@ -76,7 +76,7 @@ all_problems = {#'Kink':geometric.kinkTest(),
                 }
 
 # fetchrobotWitnessRadius = 0.0025#.01
-fetchrobotWitnessRadius = .1#01
+fetchrobotWitnessRadius = .01
 # fetchrobotWitnessRadius = .5#01
 fetchSelectionRadius = 2*fetchrobotWitnessRadius
 fetch_reach_time = 15#120

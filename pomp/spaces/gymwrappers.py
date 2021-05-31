@@ -118,7 +118,7 @@ class GymWrapperConfigurationSpace(ConfigurationSpace):
     def __init__(self, observation_space):
         self.observation_space = observation_space
 
-    def sample(self) -> list:
+    def _sample(self) -> list:
         samp = self.observation_space.sample()
         # sample_set = [self.observation_space.sample() for i in range(30)]
         # import pdb
@@ -138,6 +138,9 @@ class GymWrapperConfigurationSpace(ConfigurationSpace):
                 print("Gym environment does not support list-structured observation space")
                 # pdb.set_trace()
 
+    def sample(self):
+        return self._sample()
+
     def contains(self, x: list) -> bool:
         # import pdb
         # pdb.set_trace()
@@ -149,225 +152,6 @@ class GymWrapperConfigurationSpace(ConfigurationSpace):
             print("Gym environment does not support checking whether action_space contains value")
             # pdb.set_trace()
 
-
-
-
-# class GDValueSampler(ConfigurationSpace):
-#     def __init__(self, configurationSpace, value, start_state, goal, epsilon=.5):
-#         self.configurationSpace = configurationSpace
-#         self.value = value
-#         self.start_state = start_state
-#         self.goal = goal
-#         self.epsilon = epsilon
-
-#     def sample(self) -> list:
-#         k = np.random.geometric(self.epsilon) - 1
-#         s = torch.tensor(self.configurationSpace.sample(), dtype=torch.float32, requires_grad=True)
-#         r = ((torch.tensor(self.start_state) - s)**2).sum()**.5
-#         # opt = torch.optim.Adam([s], lr=.01)
-#         opt = torch.optim.SGD([s], lr=.1)
-#         goal_tensor = torch.tensor(self.goal, dtype=torch.float32)
-#         start_tensor = torch.tensor(self.start_state, dtype=torch.float32)
-#         # if k > 0: 
-#         #     import pdb
-#         #     pdb.set_trace()
-#         for i in range(k):
-#             opt.zero_grad()
-#             loss = -self.value(s, goal_tensor)
-#             loss.backward()
-#             opt.step()
-
-#             changed_r = ((torch.tensor(self.start_state) - s)**2).sum()**.5
-#             s_projection = start_tensor - (r/changed_r.detach())*(start_tensor - s)
-#             s.data = s_projection.data
-
-#         return s.detach().numpy().tolist()
-
-#     def contains(self, x: list) -> bool:
-#         return self.configurationSpace.contains(x)
-
-class GDValueSampler(ConfigurationSpace):
-    def __init__(self, configurationSpace, goal_value, p2p_value, start_state, goal, epsilon=.5):
-        self.configurationSpace = configurationSpace
-        self.goal_value = goal_value
-        self.p2p_value = p2p_value
-        self.start_state = start_state
-        self.goal = goal
-        self.epsilon = epsilon
-        self.total = 0
-        self.n = 1
-
-    def sample(self) -> list:
-        k = np.random.geometric(self.epsilon) - 1
-        s = torch.tensor(self.configurationSpace.sample(), dtype=torch.float32, requires_grad=True)
-        s0 = s.detach()
-        r = ((torch.tensor(self.start_state) - s)**2).sum()**.5
-        opt = torch.optim.SGD([s], lr=.1)
-        # opt = torch.optim.Adam([s], lr=.2)
-        goal_tensor = torch.tensor(self.goal, dtype=torch.float32)
-        start_tensor = torch.tensor(self.start_state, dtype=torch.float32)
-        with torch.no_grad(): 
-            # l0 = - self.p2p_value(start_tensor, s)#-self.goal_value(s, goal_tensor) 
-            l0 = -self.goal_value(s0, goal_tensor) 
-
-        for i in range(k):
-            opt.zero_grad()
-            loss = -self.goal_value(s, goal_tensor)# - self.p2p_value(start_tensor, s)
-            # loss = (self.goal_value(s, goal_tensor) + self.p2p_value(start_tensor, s))
-            loss.backward()
-            opt.step()
-
-            # changed_r = ((torch.tensor(self.start_state) - s)**2).sum()**.5
-            # s_projection = start_tensor - (r/changed_r.detach())*(start_tensor - s)
-            # s.data = s_projection.data
-
-        if k > 10: 
-            l1 = -self.goal_value(s, goal_tensor) 
-            # l1 = -self.p2p_value(start_tensor, s)
-            self.total += (l0 - l1).sum()/k
-            self.n += 1
-            print(self.total/self.n)
-
-        return s.detach().numpy().tolist()
-
-    # def sample(self) -> list:
-    #     k = np.random.geometric(self.epsilon) - 1
-    #     s = torch.tensor(self.configurationSpace.sample(), dtype=torch.float32, requires_grad=True)
-    #     # opt = torch.optim.SGD([s], lr=.1)
-    #     opt = torch.optim.Adam([s], lr=.1)
-    #     constraint_constant = 30
-    #     goal_tensor = torch.tensor(self.goal, dtype=torch.float32)
-    #     start_tensor = torch.tensor(self.start_state, dtype=torch.float32)
-
-    #     with torch.no_grad(): 
-    #         g = self.goal_value(s, goal_tensor)
-    #         p2p = self.p2p_value(start_tensor, s)
-    #         total = g + p2p
-    #         r = g/total
-
-    #     for i in range(k):
-    #         opt.zero_grad()
-    #         # loss = -self.goal_value(s, goal_tensor) - self.p2p_value(start_tensor, s)
-    #         g = self.goal_value(s, goal_tensor)
-    #         p2p = self.p2p_value(start_tensor, s)
-    #         total = g + p2p
-    #         var_r = g/total
-    #         loss = -total + constraint_constant*(var_r-r)**2
-    #         loss.backward()
-    #         opt.step()
-
-    #     return s.detach().numpy().tolist()
-
-    def contains(self, x: list) -> bool:
-        return self.configurationSpace.contains(x)
-
-
-
-class GDValueSampler(ConfigurationSpace):
-    def __init__(self, configurationSpace, goal_value, p2p_value, start_state, goal, epsilon=.5):
-        self.configurationSpace = configurationSpace
-        self.goal_value = goal_value
-        self.p2p_value = p2p_value
-        self.start_state = start_state
-        self.goal = goal
-        self.epsilon = epsilon
-        self.pre_total = 0
-        self.post_total = 0
-        self.n = 1
-
-        from pomp.example_problems.robotics.fetch.reach import FetchReachEnv
-        self.env = FetchReachEnv()
-
-    def sample(self) -> list:
-        k = np.random.geometric(self.epsilon) - 1
-        s = torch.tensor(self.configurationSpace.sample(), dtype=torch.float32, requires_grad=True)
-        s0 = s.detach()
-        r = ((torch.tensor(self.start_state) - s)**2).sum()**.5
-        opt = torch.optim.SGD([s], lr=.1)
-        # opt = torch.optim.Adam([s], lr=.2)
-        goal_tensor = torch.tensor(self.goal, dtype=torch.float32)
-        start_tensor = torch.tensor(self.start_state, dtype=torch.float32)
-        with torch.no_grad(): 
-            l0 = -self.goal_value(s, goal_tensor) #- self.p2p_value(start_tensor, s)
-
-        for i in range(k):
-            opt.zero_grad()
-            loss = -self.goal_value(s, goal_tensor) - self.p2p_value(start_tensor, s)
-            # loss = -self.goal_value(s, goal_tensor)#*0
-            # loss = (self.goal_value(s, goal_tensor) + self.p2p_value(start_tensor, s))
-            loss.backward()
-            opt.step()
-
-            changed_r = ((torch.tensor(self.start_state) - s)**2).sum()**.5
-            s_projection = start_tensor - (r/changed_r.detach())*(start_tensor - s)
-            s.data = s_projection.data
-
-
-        def state_to_goal(state):
-            self.env.sim.set_state_from_flattened(np.array(state.detach()))
-            self.env.sim.forward()
-            obs = self.env._get_obs()
-            return obs['achieved_goal']
-
-        if k > 50: 
-            # pregoal = state_to_goal(s0)
-            # postgoal = state_to_goal(s)
-            # self.pre_total += ((pregoal - self.goal)**2).sum()**.5
-            # self.post_total += ((postgoal - self.goal)**2).sum()**.5
-            # pregoal = state_to_goal(s0)
-            # postgoal = state_to_goal(s)
-            l1 = -self.goal_value(s, goal_tensor)
-            self.pre_total += l0.detach()
-            self.post_total += l1.detach()
-            # l1 = -self.goal_value(s, goal_tensor)
-            # self.total += (l0 - l1).sum()/k
-            self.n += 1
-            # print(self.total/self.n)
-            # print("Pre: " + str(self.pre_total/self.n) + ", Post: " + str(self.post_total/self.n))
-            # print(self.total/self.n)
-
-        return s.detach().numpy().tolist()
-
-
-
-
-class GymWrapperActionSet(Set):
-    def __init__(self, action_space):
-        self.action_space = action_space
-        if hasattr(action_space, 'high') and hasattr(action_space, 'low'):
-            self.bounds = lambda : (action_space.low[0], action_space.high[0])
-        else: 
-            self.bounds = lambda : None
-
-    def sample(self) -> list:
-        assert type(self.action_space) == gym.spaces.box.Box
-        samp = self.action_space.sample()
-
-        duration = [random.randint(1, control_duration)]
-
-        if type(samp) is np.ndarray: 
-            # return_value = duration + samp.tolist()
-            return_value = [samp.tolist()]*duration[0]
-            return return_value
-        else: 
-            try: 
-                assert type(samp) is int or type(samp) is float
-                # return_value = duration +[samp]
-                return_value = [samp]*duration
-                return return_value 
-            except: 
-                print("Gym environment does not support list-structured actions")
-                # pdb.set_trace()
-
-    def contains(self, x: list) -> bool:
-        return True
-        assert type(self.action_space) == gym.spaces.box.Box
-        assert self.action_space.shape[0] == len(x) - 1
-        try:
-            return self.action_space.contains(np.array(x[1:]))
-        except: 
-            print("Gym environment does not support checking whether action_space contains value")
-            # pdb.set_trace()
 
 
 
@@ -386,6 +170,7 @@ class GDValueSampler(ConfigurationSpace):
         from pomp.example_problems.robotics.fetch.reach import FetchReachEnv
         self.env = FetchReachEnv()
         self.env.reset()
+        self.shape = len(self.configurationSpace.sample())
 
         if type(norm) == type(None):
             self.norm = lambda x, y: (x, y)
@@ -404,12 +189,18 @@ class GDValueSampler(ConfigurationSpace):
 
         #configuration space sampler is standard gaussian
         if self.zero_buffer: 
-            sample_norm = torch.tensor([0] + self.configurationSpace.sample(), dtype=torch.float32)
+            # sample_norm = torch.tensor([0] + self.configurationSpace.sample(), dtype=torch.float32)
+            sample_norm, g_norm = self.norm(torch.tensor([0] + self.configurationSpace.sample(), dtype=torch.float32), 
+                                        torch.tensor(self.goal, dtype=torch.float32))
+            # sample_norm = torch.tensor([0] + np.random.randn(self.shape), dtype=torch.float32)
             start_norm, g_norm = self.norm(torch.tensor([0] + self.start_state, dtype=torch.float32), 
                                         torch.tensor(self.goal, dtype=torch.float32))
             start_tensor = torch.tensor([0] + self.start_state, dtype=torch.float32)
         else:
-            sample_norm = torch.tensor(self.configurationSpace.sample(), dtype=torch.float32)
+            # sample_norm = torch.tensor(self.configurationSpace.sample(), dtype=torch.float32)
+            # sample_norm = torch.tensor(np.random.randn(self.shape), dtype=torch.float32)
+            sample_norm, g_norm = self.norm(torch.tensor(self.configurationSpace.sample(), dtype=torch.float32), 
+                                        torch.tensor(self.goal, dtype=torch.float32))
             start_norm, g_norm = self.norm(   torch.tensor(self.start_state, dtype=torch.float32), 
                                         torch.tensor(self.goal, dtype=torch.float32))
             start_tensor = torch.tensor(self.start_state, dtype=torch.float32)
@@ -463,6 +254,51 @@ class GDValueSampler(ConfigurationSpace):
 
     def contains(self, x: list) -> bool:
         return self.configurationSpace.contains(x)
+
+
+
+
+
+
+class GymWrapperActionSet(Set):
+    def __init__(self, action_space):
+        self.action_space = action_space
+        if hasattr(action_space, 'high') and hasattr(action_space, 'low'):
+            self.bounds = lambda : (action_space.low[0], action_space.high[0])
+        else: 
+            self.bounds = lambda : None
+
+    def sample(self) -> list:
+        assert type(self.action_space) == gym.spaces.box.Box
+        samp = self.action_space.sample()
+
+        duration = [random.randint(1, control_duration)]
+
+        if type(samp) is np.ndarray: 
+            # return_value = duration + samp.tolist()
+            return_value = [samp.tolist()]*duration[0]
+            return return_value
+        else: 
+            try: 
+                assert type(samp) is int or type(samp) is float
+                # return_value = duration +[samp]
+                return_value = [samp]*duration
+                return return_value 
+            except: 
+                print("Gym environment does not support list-structured actions")
+                # pdb.set_trace()
+
+    def contains(self, x: list) -> bool:
+        return True
+        assert type(self.action_space) == gym.spaces.box.Box
+        assert self.action_space.shape[0] == len(x) - 1
+        try:
+            return self.action_space.contains(np.array(x[1:]))
+        except: 
+            print("Gym environment does not support checking whether action_space contains value")
+            # pdb.set_trace()
+
+
 
 
 class RLAgentControlSelector(ControlSelector):
