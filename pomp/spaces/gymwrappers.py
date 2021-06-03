@@ -710,6 +710,7 @@ class GDValueSampler(ConfigurationSpace):
         s0 = sample_norm.detach().clone()
         s_norm = sample_norm.detach().requires_grad_()
         opt = torch.optim.Adam([s_norm], lr=.05)
+        # opt = torch.optim.SGD([s_norm], lr=.05)
 
         constraint_constant = 30
 
@@ -744,9 +745,9 @@ class GDValueSampler(ConfigurationSpace):
             total = g + p2p
             var_r = g/total
             reg_loss = 1*(s_norm**2).sum()
-            loss = -total + constraint_constant*(var_r-r)**2
-            # loss = -total #+ reg_loss
-            # loss = -g
+            # loss = -total + constraint_constant*(var_r-r)**2
+            # loss = -total + reg_loss + constraint_constant*(var_r-r)**2
+            loss = -g
             loss.backward()
             # import pdb
             # pdb.set_trace()

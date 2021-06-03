@@ -104,6 +104,7 @@ def state_to_goal(self, state):
 
 class FetchRobot: 
     def setup(self):
+        self.env.seed(0)
         obs = self.env.reset()
         self.start_state = obs['observation'].tolist()
         self.goal = obs['desired_goal'].tolist()
@@ -205,7 +206,7 @@ class FetchRobot:
                 samp = torch.tensor(self.control_space.configuration_space._sample())#*2
                 return goal_value.denorm(samp, torch.tensor(goal))[0].tolist()
 
-            setattr(self.control_space.configuration_space, 'distance', dist)
+            # setattr(self.control_space.configuration_space, 'distance', dist)
             setattr(self.control_space.configuration_space, 'sample', normed_sample)
 
             self.control_space.configuration_sampler = gd_sampler

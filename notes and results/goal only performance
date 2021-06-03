@@ -1,0 +1,10 @@
+notes
+	working if I only optimize the goal distance?
+		15s: .73/7.9 to .76/8.0
+		30s: .9/8.4 to .9/4.7
+			.96/8.9 to .9/8.47
+			1 / 7,98
+		60: .98/7.43 to 1/7.14
+			1/8.38	 to 1/7.86
+		120s: 1/7.64 to 1/7.06
+			1/6.64   to 1/6.8
