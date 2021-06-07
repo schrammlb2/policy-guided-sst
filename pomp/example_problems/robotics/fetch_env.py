@@ -129,8 +129,8 @@ class FetchEnv(robot_env.RobotEnv):
 
         return {
             # 'observation': obs.copy(),
-            # 'observation': self.sim.get_state().flatten(),
-            'observation': self.sim.get_state().flatten()[1:],
+            'observation': self.sim.get_state().flatten(),
+            # 'observation': self.sim.get_state().flatten()[1:],
             'achieved_goal': achieved_goal.copy(),
             'desired_goal': self.goal.copy(),
         }

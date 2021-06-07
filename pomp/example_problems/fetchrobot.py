@@ -58,16 +58,17 @@ use_agent = True
 use_heuristic = True
 use_value_function = True
 # use_value_function = False
+# p_random = .5
 # p_goal = .5
 p_random = 0
 # p_random = .1
-# p_goal = 1
-p_goal = 0
+p_goal = 1
+# p_goal = 0
 # p_random = .4
 # p_goal = .2
 # p_random = .3
 # p_goal = .4
-mean_GD_steps = 3
+mean_GD_steps = 2
 epsilon = 1/(1+mean_GD_steps)
 euclidean = False
 # euclidean = True
@@ -84,9 +85,16 @@ value_function_infix = "_value"
 
 
 
-def set_state(self, state):
+def set_state_zero_buffer(self, state):
     assert type(state) == type([])
     s = [0] + state
+    # self.sim.set_state_from_flattened(np.array(state))
+    self.sim.set_state_from_flattened(s)
+    self.sim.forward()
+
+def set_state_no_buffer(self, state):
+    assert type(state) == type([])
+    s = state
     # self.sim.set_state_from_flattened(np.array(state))
     self.sim.set_state_from_flattened(s)
     self.sim.forward()
@@ -103,12 +111,15 @@ def state_to_goal(self, state):
 
 
 class FetchRobot: 
-    def setup(self):
+    def setup(self, zero_buffer = False):
         self.env.seed(0)
         obs = self.env.reset()
         self.start_state = obs['observation'].tolist()
         self.goal = obs['desired_goal'].tolist()
-        setattr(self.env, 'set_state', set_state)
+        if zero_buffer: 
+            setattr(self.env, 'set_state', set_state_no_buffer)
+        else: 
+            setattr(self.env, 'set_state', set_state_zero_buffer)
         self.control_space = GymWrapperGoalConditionedControlSpace(self.env, self.goal, normalize_state_sampling=False)
         # self.control_space = GymWrapperGoalConditionedControlSpace(self.env, self.goal, normalize_state_sampling=True)
 
@@ -197,9 +208,11 @@ class FetchRobot:
 
 
             def dist(x,y):
-                x_norm = goal_value.norm(torch.tensor(x), torch.tensor(goal))[0].tolist()
-                y_norm = goal_value.norm(torch.tensor(y), torch.tensor(goal))[0].tolist()
+                # x_norm = goal_value.norm(torch.tensor(x), torch.tensor(goal))[0].tolist()
+                # y_norm = goal_value.norm(torch.tensor(y), torch.tensor(goal))[0].tolist()
                 # return metric.euclideanMetric(x_norm[1:15] + x_norm[31:], y_norm[1:15] + y_norm[31:]) 
+                x_norm, y_norm = x, y
+                return metric.euclideanMetric(x_norm[:14] + x_norm[30:], y_norm[:14] + y_norm[30:]) 
                 return metric.euclideanMetric(x_norm, y_norm) 
 
             def normed_sample():
@@ -219,7 +232,7 @@ class FetchReach(FetchRobot):
         self.env = FetchReachEnv()
         agent_name = "FetchReach"
         self.env_name = agent_name
-        self.setup()
+        self.setup(zero_buffer=zero_buffer)
         self.set_control_selector(agent_name, zero_buffer=zero_buffer)
         self.set_heuristic(agent_name)
         self.set_value_function(agent_name, zero_buffer=zero_buffer)
@@ -230,7 +243,7 @@ class FetchPush(FetchRobot):
         self.env = FetchPushEnv()
         agent_name = "FetchPush"
         self.env_name = agent_name
-        self.setup()
+        self.setup(zero_buffer=zero_buffer)
         self.set_control_selector(agent_name, zero_buffer=zero_buffer)
         self.set_heuristic(agent_name)
         self.set_value_function(agent_name, zero_buffer=zero_buffer)
@@ -244,7 +257,7 @@ class FetchSlide(FetchRobot):
         self.env = FetchSlideEnv()
         agent_name = "FetchSlide"
         self.env_name = agent_name
-        self.setup()
+        self.setup(zero_buffer=zero_buffer)
         self.set_control_selector(agent_name, zero_buffer=zero_buffer)
         self.set_heuristic(agent_name)
         self.set_value_function(agent_name, zero_buffer=zero_buffer)
@@ -254,11 +267,11 @@ class FetchSlide(FetchRobot):
 class FetchPickAndPlace(FetchRobot): 
     def __init__(self):
         zero_buffer = True
-        # zero_buffer = False
+        zero_buffer = False
         self.env = FetchPickAndPlaceEnv()
         agent_name = "FetchPickAndPlace"
         self.env_name = agent_name
-        self.setup()
+        self.setup(zero_buffer=zero_buffer)
         self.set_control_selector(agent_name, zero_buffer=zero_buffer)
         self.set_heuristic(agent_name)
         self.set_value_function(agent_name, zero_buffer=zero_buffer)

@@ -4,7 +4,7 @@ import numpy as np
 
 def sample_valid_goal(base_env):
     # if np.random.binomial(1, .5):
-    #     return base_env.observation_space['observation'].sample()
+    return base_env.observation_space['observation'].sample()
 
     env = copy.deepcopy(base_env)
     env.reset()

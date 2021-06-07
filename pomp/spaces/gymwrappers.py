@@ -744,10 +744,10 @@ class GDValueSampler(ConfigurationSpace):
             # p2p = self.p2p_value(start_norm, s_norm, norm=False)
             total = g + p2p
             var_r = g/total
-            reg_loss = 1*(s_norm**2).sum()
+            reg_loss = .5*(s_norm**2).sum()
             # loss = -total + constraint_constant*(var_r-r)**2
             # loss = -total + reg_loss + constraint_constant*(var_r-r)**2
-            loss = -g
+            loss = -g# + reg_loss
             loss.backward()
             # import pdb
             # pdb.set_trace()

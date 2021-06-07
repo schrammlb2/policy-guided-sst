@@ -79,7 +79,7 @@ def testPlanner(problem,numTrials,maxTime,filename, plannerType, **plannerParams
     # print('Average cost: ' + str(ave_cost))
     print('Average cost: ' + str(np.mean(costs)))
     print('Cost STD: ' + str(np.std(costs)))
-    print('Cost CI: ' + str(2*np.std(costs)/successes))
+    print('Cost CI: ' + str(2*np.std(costs)/successes**.5))
 
 
 

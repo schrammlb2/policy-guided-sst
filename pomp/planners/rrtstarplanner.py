@@ -346,10 +346,10 @@ class StableSparseRRT(TreePlanner):
 
 
         edge = self.controlSpace.interpolator(nnear.x,u)
-        if not self.edgeChecker.feasible(edge):
-            #self.stats.stopwatch('edgeCheck').end()
-            #self.stats.count('numInfeasible').add(1)
-            return None
+        # if not self.edgeChecker.feasible(edge):
+        #     #self.stats.stopwatch('edgeCheck').end()
+        #     #self.stats.count('numInfeasible').add(1)
+        #     return None
 
             
         #self.stats.stopwatch('edgeCheck').end()

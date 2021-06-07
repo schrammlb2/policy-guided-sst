@@ -79,9 +79,9 @@ all_problems = {#'Kink':geometric.kinkTest(),
 fetchrobotWitnessRadius = .01#01
 # fetchrobotWitnessRadius = .5#01
 fetchSelectionRadius = 2*fetchrobotWitnessRadius
-fetch_reach_time = 60
-fetch_time = 600
-# fetch_time = 30
+fetch_reach_time = 30
+# fetch_time = 1200
+fetch_time = 30
 
 
 defaultParameters = {'maxTime':30}
@@ -94,7 +94,7 @@ customParameters = {'Kink':{'maxTime':40,'nextStateSamplingRange':0.15},
                     # 'GymMomentum':{'maxTime':30},#'selectionRadius':0.3,'witnessRadius':0.3},
                     'GymMomentum':{'maxTime':30,'selectionRadius':0.25,'witnessRadius':0.1},
                     'FetchReach':{'maxTime':fetch_reach_time,'witnessRadius':fetchrobotWitnessRadius,'selectionRadius':fetchSelectionRadius},
-                    'FetchPush':{'maxTime':fetch_time},#,'witnessRadius':fetchrobotWitnessRadius,'selectionRadius':fetchSelectionRadius},
+                    'FetchPush':{'maxTime':fetch_time,'witnessRadius':fetchrobotWitnessRadius,'selectionRadius':fetchSelectionRadius},
                     'FetchSlide':{'maxTime':fetch_time,'witnessRadius':fetchrobotWitnessRadius,'selectionRadius':fetchSelectionRadius},
                     'FetchPickAndPlace':{'maxTime':fetch_time,'witnessRadius':fetchrobotWitnessRadius,'selectionRadius':fetchSelectionRadius},
                     'Flappy':{'maxTime':120,'edgeCheckTolerance':4,'selectionRadius':70,'witnessRadius':35},
