@@ -90,7 +90,10 @@ if __name__ == '__main__':
     args = get_args()
 
     if args.p2p: 
-        from HER.rl_modules.p2p_agent import ddpg_agent
+        if "Fetch" in args.env_name:
+            from HER.rl_modules.fetch_specific_p2p import ddpg_agent
+        else: 
+            from HER.rl_modules.p2p_agent import ddpg_agent
         suffix = "_p2p"
     else: 
         from HER.rl_modules.sac_agent import ddpg_agent
@@ -98,13 +101,13 @@ if __name__ == '__main__':
 
     agent = launch(args)
 
-    with open("saved_models/her_" + args.env_name + suffix + ".pkl", 'wb') as f:
-        pickle.dump(agent.actor_network, f)
-        print("Saved agent")
+    # with open("saved_models/her_" + args.env_name + suffix + ".pkl", 'wb') as f:
+    #     pickle.dump(agent.actor_network, f)
+    #     print("Saved agent")
 
-    value_estimator = StateValueEstimator(agent.actor_network, agent.critic_network, args.gamma)
+    # value_estimator = StateValueEstimator(agent.actor_network, agent.critic_network, args.gamma)
 
-    with open("saved_models/her_" + args.env_name + "_value" + suffix + ".pkl", 'wb') as f:
-        pickle.dump(value_estimator, f)
-        print("Saved value estimator")
+    # with open("saved_models/her_" + args.env_name + "_value" + suffix + ".pkl", 'wb') as f:
+    #     pickle.dump(value_estimator, f)
+    #     print("Saved value estimator")
 

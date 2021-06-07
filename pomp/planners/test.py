@@ -19,6 +19,7 @@ def testPlanner(problem,numTrials,maxTime,filename, plannerType, **plannerParams
     f = open(filename,'w')
     f.write("trial,plan iters,plan time,best cost\n")
     successes = 0
+    costs = []
     for trial in range(numTrials):
         print()
         print("Trial",trial+1)# 
@@ -59,6 +60,7 @@ def testPlanner(problem,numTrials,maxTime,filename, plannerType, **plannerParams
             temp.pretty_print()
 
         if curCost < float('inf'):
+            costs.append(curCost)
             successes += 1
 
         print()
@@ -66,9 +68,27 @@ def testPlanner(problem,numTrials,maxTime,filename, plannerType, **plannerParams
         print()
 
         f.write(str(trial)+","+str(iters)+","+str(maxTime)+","+str(curCost)+'\n')
-    f.close()
 
+    total_cost = sum(costs)
+    if successes > 0:
+        ave_cost = total_cost/successes
+    else: 
+        ave_cost = float('inf')
     print('Success rate: ' + str(successes/numTrials))
+    # print('Average cost: ' + str(ave_cost))
+    print('Average cost: ' + str(np.mean(costs)))
+    print('Cost STD: ' + str(np.std(costs)))
+    print('Cost CI: ' + str(2*np.std(costs)/successes**.5))
+
+
+    f.write('Num trials: ' + str(numTrials) + '\n')
+    f.write('Success rate: ' + str(successes/numTrials) + '\n')
+    f.write('Average cost: ' + str(np.mean(costs)) + '\n')
+    f.write('Cost STD: ' + str(np.std(costs)) + '\n')
+    f.write('Cost CI: ' + str(2*np.std(costs)/successes**.5) + '\n')
+
+
+    f.close()
 
 
 
