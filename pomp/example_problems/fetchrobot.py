@@ -163,7 +163,8 @@ class FetchRobot:
 
             # value = lambda x: goal_value(x) + p2p_value(x)**.5
             # gd_sampler = GDValueSampler(cs, goal_value, start_state, goal, epsilon=epsilon)
-            gd_sampler = GDValueSampler(cs, goal_value, p2p_value, start_state, goal, epsilon=epsilon)
+            gd_sampler = GDValueSampler(cs, goal_value, p2p_value, start_state, goal, epsilon=epsilon, 
+                norm=goal_value.actor._get_norms, denorm=goal_value.actor._get_denorms)
             # gd_sampler = GDValueSampler(cs, value, start_state, goal, epsilon=epsilon)
             # self.control_space.configuration_space = gd_sampler
             self.control_space.configuration_sampler = gd_sampler

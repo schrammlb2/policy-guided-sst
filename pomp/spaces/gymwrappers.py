@@ -247,7 +247,7 @@ class GymWrapperConfigurationSpace(ConfigurationSpace):
 
 class GDValueSampler(ConfigurationSpace):
     def __init__(self, configurationSpace, goal_value, p2p_value, start_state, goal, 
-        norm=None, denorm=None, epsilon=.5, zero_buffer=True):
+        norm=None, denorm=None, epsilon=.5, zero_buffer=False):
         self.configurationSpace = configurationSpace
         self.goal_value = goal_value
         self.p2p_value = p2p_value

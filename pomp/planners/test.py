@@ -30,7 +30,8 @@ def testPlanner(problem,numTrials,maxTime,filename, plannerType, **plannerParams
         iters = 0
         hadException = False
         # while time.time()-t0 < maxTime:
-        while time.time()-t0 < maxTime and curCost == float('inf'):
+        # while time.time()-t0 < maxTime and curCost == float('inf'):
+        for _ in range(maxTime):
             planner.planMore(10)
             # try:
             #     planner.planMore(10)
