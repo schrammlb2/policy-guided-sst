@@ -20,7 +20,7 @@ from pomp.example_problems.robotics.fetch.push import FetchPushEnv
 from pomp.example_problems.robotics.fetch.slide import FetchSlideEnv
 from pomp.example_problems.robotics.fetch.pick_and_place import FetchPickAndPlaceEnv
 from train_distance_function import net
-
+import torch
 
 """
 Left to implement: 
@@ -165,6 +165,14 @@ class FetchRobot:
             # gd_sampler = GDValueSampler(cs, goal_value, start_state, goal, epsilon=epsilon)
             gd_sampler = GDValueSampler(cs, goal_value, p2p_value, start_state, goal, epsilon=epsilon, 
                 norm=goal_value.actor._get_norms, denorm=goal_value.actor._get_denorms)
+
+
+            def normed_sample():
+                samp = torch.tensor(np.random.randn(start_state.shape[0]))#*2
+                return goal_value.actor._get_denorms(samp, torch.tensor(goal))[0].tolist()
+
+            # setattr(self.control_space.configuration_space, 'distance', dist)
+            setattr(self.control_space.configuration_space, 'sample', normed_sample)
             # gd_sampler = GDValueSampler(cs, value, start_state, goal, epsilon=epsilon)
             # self.control_space.configuration_space = gd_sampler
             self.control_space.configuration_sampler = gd_sampler
