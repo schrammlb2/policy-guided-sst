@@ -18,6 +18,8 @@ class torch_normalizer:
         return torch.clip((v - self.mean) / (self.std), -clip_range, clip_range)
         return np.clip((v - self.mean) / (self.std), -clip_range, clip_range)
 
+    def denormalize(self, v):
+        return v*self.std + self.mean
 
 
 class normalizer:
