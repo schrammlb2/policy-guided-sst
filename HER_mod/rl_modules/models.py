@@ -125,6 +125,37 @@ class actor(nn.Module):
 
         return actions
 
+
+    def set_normalizers(self, o, g): 
+        self.o_norm = o
+        self.g_norm = g
+
+    # def normed_forward(self, obs, g, deterministic=False): 
+    #     obs_norm = self.o_norm.normalize(obs)
+    #     g_norm = self.g_norm.normalize(g)
+    #     # concatenate the stuffs
+    #     inputs = np.concatenate([obs_norm, g_norm])
+    #     inputs = torch.tensor(inputs, dtype=torch.float32).unsqueeze(0)
+    #     return self.forward(inputs, deterministic=deterministic)
+
+    def _get_norms(self, obs, g):
+        obs_norm = self.o_norm.normalize(obs)
+        g_norm = self.g_norm.normalize(g)
+        return obs_norm, g_norm
+
+    def _get_denorms(self, obs, g):
+        obs_denorm = self.o_norm.denormalize(obs)
+        g_denorm = self.g_norm.denormalize(g)
+        return obs_denorm, g_denorm
+
+    def normed_forward(self, obs, g, deterministic=False): 
+        obs_norm, g_norm = self._get_norms(torch.tensor(obs, dtype=torch.float32), torch.tensor(g, dtype=torch.float32))
+        # concatenate the stuffs
+        inputs = torch.cat([obs_norm, g_norm])
+        inputs = inputs.unsqueeze(0)
+        return self.forward(inputs)
+
+
 class critic(nn.Module):
     def __init__(self, env_params):
         super(critic, self).__init__()
@@ -142,3 +173,32 @@ class critic(nn.Module):
         q_value = self.q_out(x)
 
         return q_value
+
+
+class StateValueEstimator(nn.Module):
+    def __init__(self, actor, critic, gamma):
+        super().__init__()
+        self.actor = actor
+        self.critic = critic
+        self.gamma = gamma
+
+    def q2time(self, q):
+        # max_q = 1/(1-self.args.gamma)
+        # ratio = -.99*torch.clip(q/max_q, -1,0) #.99 for numerical stability
+        return torch.log(1+q*(1-self.gamma)*.998)/torch.log(torch.tensor(self.gamma))
+
+    def forward(self, o: torch.Tensor, g: torch.Tensor, norm=True): 
+        assert type(o) == torch.Tensor
+        assert type(g) == torch.Tensor
+        if norm: 
+            obs_norm, g_norm = self.actor._get_norms(o,g)
+        else: 
+            obs_norm, g_norm = o, g
+        inputs = torch.cat([obs_norm, g_norm])
+        inputs = inputs.unsqueeze(0)
+
+        action = self.actor(inputs)
+        value = self.critic(inputs, action).squeeze()
+
+        # return self.q2time(value)
+        return value

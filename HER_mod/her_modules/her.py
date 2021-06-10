@@ -59,7 +59,8 @@ class her_sampler:
         #     # rands[...,:2] *= .0
         #     # rands[...,2:] *= .0
         #     rands[...,:2] *= .0
-        #     rands[...,2:] *= .3
+        #     # rands[...,2:] *= .3
+        #     rands[...,2:] *= 1
         #     # rands[...,:2] *= .1
         #     # rands[...,2:] *= .7#*self.base_std
 
@@ -68,8 +69,8 @@ class her_sampler:
         #         # transitions['g'] = rands
         #     # # rands=rands*0
         #     transitions['g'] = bound(transitions['g'] + rands)
-            # # transitions['g'][...,2:] = (alpha*transitions['g'] + (1-alpha)*rands)[...,2:]
-            # # transitions['g'][...,2:] = (transitions['g'] + (1-alpha)*rands)[...,2:]
+        #     # # transitions['g'][...,2:] = (alpha*transitions['g'] + (1-alpha)*rands)[...,2:]
+        #     # # transitions['g'][...,2:] = (transitions['g'] + (1-alpha)*rands)[...,2:]
         # to get the params to re-compute reward
         collided = transitions['col']
         rewards = self.reward_func(transitions['ag_next'], transitions['g'], None) - collided*(COLLISION_COST)

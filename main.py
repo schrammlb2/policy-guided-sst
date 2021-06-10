@@ -9,6 +9,7 @@ from pomp.example_problems import pendulum
 # from pomp.example_problems import gym_pendulum_2 as gym_pendulum
 from pomp.example_problems import gym_momentum
 from pomp.example_problems import fetchrobot
+from pomp.example_problems import gym_asteroids
 # from pomp.example_problems import gym_car
 from pomp.spaces.objectives import *
 
@@ -68,6 +69,7 @@ all_problems = {#'Kink':geometric.kinkTest(),
                 # 'GymCar':gym_car.carTest(),
                 'GymPendulum':gym_pendulum.gymPendulumTest,
                 'GymMomentum':gym_momentum.gymMomentumTest,
+                'GymAsteroids':gym_asteroids.gymAsteroidsTest,
                 'FetchReach':fetchrobot.fetchReachTest,
                 'FetchPush':fetchrobot.fetchPushTest,
                 'FetchSlide':fetchrobot.fetchSlideTest,
@@ -91,6 +93,7 @@ customParameters = {'Kink':{'maxTime':40,'nextStateSamplingRange':0.15},
                     # 'GymPendulum':{'maxTime':7200},#,'selectionRadius':.03, 'witnessRadius':.01}, 
                     # 'GymMomentum':{'maxTime':30},#'selectionRadius':0.3,'witnessRadius':0.3},
                     'GymMomentum':{'maxTime':30,'selectionRadius':0.25,'witnessRadius':0.1},
+                    'GymAsteroids':{'maxTime':30,'selectionRadius':0.25,'witnessRadius':0.1},
                     'FetchReach':{'maxTime':120,'witnessRadius':fetchrobotWitnessRadius,'selectionRadius':fetchSelectionRadius},
                     'FetchPush':{'maxTime':fetch_time},#,'witnessRadius':fetchrobotWitnessRadius,'selectionRadius':fetchSelectionRadius},
                     'FetchSlide':{'maxTime':fetch_time,'witnessRadius':fetchrobotWitnessRadius,'selectionRadius':fetchSelectionRadius},

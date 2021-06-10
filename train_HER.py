@@ -49,13 +49,13 @@ def launch(args):
         # env = TimeLimit(CarEnvironment("CarEnvironment", time=True, vel_goal=False), max_episode_steps=50)
     elif args.env_name == "PendulumGoal":
         env = TimeLimit(PendulumGoalEnv(g=9.8), max_episode_steps=200)
-    elif "FetchReach" in args.env_name:
+    elif args.env_name == "FetchReach":
         env = TimeLimit(FetchReachEnv(), max_episode_steps=50)
-    elif "FetchPush" in args.env_name:
+    elif args.env_name == "FetchPush":
         env = TimeLimit(FetchPushEnv(), max_episode_steps=50)
-    elif "FetchSlide" in args.env_name:
+    elif args.env_name == "FetchSlide":
         env = TimeLimit(FetchSlideEnv(), max_episode_steps=50)
-    elif "FetchPickAndPlace" in args.env_name:
+    elif args.env_name == "FetchPickAndPlace":
         env = TimeLimit(FetchPickAndPlaceEnv(), max_episode_steps=50)
     else:
         env = gym.make(args.env_name)
@@ -90,13 +90,18 @@ if __name__ == '__main__':
     args = get_args()
 
     if args.p2p: 
-        if "Fetch" in args.env_name:
-            from HER.rl_modules.fetch_specific_p2p import ddpg_agent
-        else: 
-            from HER.rl_modules.p2p_agent import ddpg_agent
+        # if "Fetch" in args.env_name:
+        #     from HER.rl_modules.fetch_specific_p2p import ddpg_agent
+        # else: 
+        #     from HER.rl_modules.p2p_agent import ddpg_agent
+        from HER.rl_modules.tdm_p2p import ddpg_agent
         suffix = "_p2p"
     else: 
-        from HER.rl_modules.sac_agent import ddpg_agent
+        # from HER.rl_modules.sac_agent import ddpg_agent
+        # from HER.rl_modules.ddpg_agent import ddpg_agent
+        # from HER.rl_modules.ddpg_original import ddpg_agent
+        # from HER.rl_modules.tdm_agent import ddpg_agent
+        from HER.rl_modules.tdm_ddpg_agent import ddpg_agent
         suffix = ""
 
     agent = launch(args)

@@ -322,7 +322,7 @@ class GDValueSampler(ConfigurationSpace):
             reg_loss = .5*(s_norm**2).sum()
             # loss = -total + constraint_constant*(var_r-r)**2
             # loss = -total + reg_loss + constraint_constant*(var_r-r)**2
-            loss = -g# + reg_loss
+            loss = -g + reg_loss
             loss.backward()
             opt.step()
             traj.append(s_norm.clone().detach())

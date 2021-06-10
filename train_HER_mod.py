@@ -10,9 +10,11 @@ from HER_mod.arguments import get_args
 from HER_mod.rl_modules.ddpg_agent import ddpg_agent
 # from HER.rl_modules.her_ddpg_agent import her_ddpg_agent
 from HER_mod.rl_modules.velocity_env import *
+from HER_mod.rl_modules.car_env import *
 # from pomp.planners.plantogym import *
 from HER_mod.rl_modules.value_map import *
 from HER_mod.rl_modules.hooks import *
+from HER_mod.rl_modules.models import StateValueEstimator
 from HER_mod.rl_modules.tsp import *
 from HER_mod.rl_modules.get_path_costs import get_path_costs, get_random_search_costs, method_comparison
 
@@ -56,10 +58,12 @@ def launch(args, time=True, hooks=[], vel_goal=False, seed=True):
     #     env = gym.make(args.env_name)
 
     if args.env_name == "MultiGoalEnvironment":
-        env = MultiGoalEnvironment("MultiGoalEnvironment", time=True, vel_goal=False)
+        env = MultiGoalEnvironment("MultiGoalEnvironment", time=True, vel_goal=vel_goal)
     elif "Car" in args.env_name:
         env = CarEnvironment("CarEnvironment", time=True, vel_goal=False)
         # env = TimeLimit(CarEnvironment("CarEnvironment", time=True, vel_goal=False), max_episode_steps=50)
+    elif "Asteroids" in args.env_name:
+        env = TimeLimit(RotationEnv(vel_goal=vel_goal), max_episode_steps=50)
     elif args.env_name == "PendulumGoal":
         env = TimeLimit(PendulumGoalEnv(g=9.8), max_episode_steps=200)
     elif "FetchReach" in args.env_name:
@@ -157,15 +161,27 @@ if __name__ == '__main__':
     # for i in range(10):
     #     args.seed += 1
         # agent, run_times = launch(args, time=True, hooks=hook_list, vel_goal=True, seed=False)
-    agent, run_times = launch(args, time=True, hooks=[], vel_goal=False, seed=False)
     # agent, run_times = launch(args, time=True, hooks=hook_list, vel_goal=True, seed=False)
 
-    with open("saved_models/her_mod_" + args.env_name + ".pkl", 'wb') as f:
-        pickle.dump(agent.actor_network, f)
-        print("Saved models")
-    # plot_cost_by_vel_goal(agent, last_static=True)
-    # plot_cost_by_vel_goal(agent, last_static=False)
-    # plot_gradient_vector_field(agent)
-    # method_comparison(train_pos_agent, train_vel_agent)
-    # get_random_search_costs(train_vel_agent, perm_search=False)
-    # get_path_costs(train_pos_agent, train_vel_agent, perm_search=False)
+    if args.p2p: 
+        # if "Fetch" in args.env_name:
+        #     from HER.rl_modules.fetch_specific_p2p import ddpg_agent
+        # else: 
+        #     from HER.rl_modules.p2p_agent import ddpg_agent
+        agent, run_times = launch(args, time=True, hooks=[], vel_goal=True, seed=False)
+        suffix = "_p2p"
+    else: 
+        # from HER.rl_modules.sac_agent import ddpg_agent
+        agent, run_times = launch(args, time=True, hooks=[], vel_goal=False, seed=False)
+        suffix = ""
+
+
+    # with open("saved_models/her_mod_" + args.env_name + suffix + ".pkl", 'wb') as f:
+    #     pickle.dump(agent.actor_network, f)
+    #     print("Saved agent")
+
+    # value_estimator = StateValueEstimator(agent.actor_network, agent.critic.critic_1, args.gamma)
+
+    # with open("saved_models/her_mod_" + args.env_name + "_value" + suffix + ".pkl", 'wb') as f:
+    #     pickle.dump(value_estimator, f)
+    #     print("Saved value estimator")

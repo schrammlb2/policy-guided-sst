@@ -251,16 +251,16 @@ class MultiGoalEnvironment:
 		new_vel = self.vel + force/self.mass*self.step_size
 		# new_vel = self.vel + force/(self.mass*(1 + self.v_traction*(self.vel**2).sum()**.5))*self.step_size
 		# new_vel = self.vel + force/(self.mass)*self.step_size
-		new_vel = act
+		# new_vel = act
 		new_pos = self.pos + new_vel*self.step_size
 		# print(next_state['obs'])
 		# new_pos = np.clip(new_pos, -1, 1)
 		# new_pos, new_vel = bounce(new_pos, new_vel)
 		collided = check_collision(new_pos)
 
-		# new_pos, new_vel = brake(new_pos, new_vel)
+		new_pos, new_vel = brake(new_pos, new_vel)
 		# new_pos, new_vel = skate(new_pos, new_vel)
-		new_pos, new_vel = wall_behavior(new_pos, new_vel)
+		# new_pos, new_vel = wall_behavior(new_pos, new_vel)
 		new_vel = np.clip(new_vel, -self.max_vel, self.max_vel)
 		self.time_limit -= 1
 		if self.close(new_pos, self.goal)*1 > .75:

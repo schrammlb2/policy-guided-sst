@@ -6,12 +6,14 @@ import itertools
 from mpi4py import MPI
 
 from HER_mod.mpi_utils.mpi_utils import sync_networks, sync_grads
-from HER_mod.mpi_utils.normalizer import normalizer
+# from HER_mod.mpi_utils.normalizer import normalizer
+from HER.mpi_utils.normalizer import normalizer
 
 from HER_mod.her_modules.her import her_sampler
 
 from HER_mod.rl_modules.replay_buffer import replay_buffer
 from HER_mod.rl_modules.models import actor, critic
+# from HER.rl_modules.sac_models import actor, critic
 from HER_mod.rl_modules.value_map import *
 from HER_mod.rl_modules.velocity_env import *
 from HER_mod.rl_modules.hyperparams import POS_LIMIT
@@ -334,31 +336,32 @@ class ddpg_agent:
 
     # update the normalizer
     def _update_normalizer(self, episode_batch):
-        pass
-        # mb_obs, mb_ag, mb_g, mb_actions, mb_col = episode_batch
-        # mb_obs_next = mb_obs[:, 1:, :]
-        # mb_ag_next = mb_ag[:, 1:, :]
-        # # get the number of normalization transitions
-        # num_transitions = mb_actions.shape[1]
-        # # create the new buffer to store them
-        # buffer_temp = {'obs': mb_obs, 
-        #                'ag': mb_ag,
-        #                'g': mb_g, 
-        #                'actions': mb_actions, 
-        #                'obs_next': mb_obs_next,
-        #                'ag_next': mb_ag_next,
-        #                'col': mb_col, 
-        #                }
-        # transitions = self.her_module.sample_her_transitions(buffer_temp, num_transitions)
-        # obs, g = transitions['obs'], transitions['g']
-        # # pre process the obs and g
-        # transitions['obs'], transitions['g'] = self._preproc_og(obs, g)
-        # # update
-        # self.o_norm.update(transitions['obs'])
-        # self.g_norm.update(transitions['g'])
-        # # recompute the stats
-        # self.o_norm.recompute_stats()
-        # self.g_norm.recompute_stats()
+        # pass
+        mb_obs, mb_ag, mb_g, mb_actions, mb_col = episode_batch
+        mb_obs_next = mb_obs[:, 1:, :]
+        mb_ag_next = mb_ag[:, 1:, :]
+        # get the number of normalization transitions
+        num_transitions = mb_actions.shape[1]
+        # create the new buffer to store them
+        buffer_temp = {'obs': mb_obs, 
+                       'ag': mb_ag,
+                       'g': mb_g, 
+                       'actions': mb_actions, 
+                       'obs_next': mb_obs_next,
+                       'ag_next': mb_ag_next,
+                       'col': mb_col, 
+                       }
+        transitions = self.her_module.sample_her_transitions(buffer_temp, num_transitions)
+        obs, g = transitions['obs'], transitions['g']
+        # pre process the obs and g
+        transitions['obs'], transitions['g'] = self._preproc_og(obs, g)
+        # update
+        self.o_norm.update(transitions['obs'])
+        self.g_norm.update(transitions['g'])
+        # recompute the stats
+        self.o_norm.recompute_stats()
+        self.g_norm.recompute_stats()
+        self.actor_network.set_normalizers(self.o_norm.get_torch_normalizer(), self.g_norm.get_torch_normalizer())
 
     def _preproc_og(self, o, g):
         o = np.clip(o, -self.args.clip_obs, self.args.clip_obs)
@@ -366,15 +369,15 @@ class ddpg_agent:
         return o, g
 
     # soft update
-    # def _soft_update_target_network(self, target, source):
-    #     for target_param, param in zip(target.parameters(), source.parameters()):
-    #         target_param.data.copy_((1 - self.args.polyak) * param.data + self.args.polyak * target_param.data)
-
-
     def _soft_update_target_network(self, target, source):
-        self.polyak_scale*=self.polyak_decay
         for target_param, param in zip(target.parameters(), source.parameters()):
-            target_param.data.copy_((1 - (self.polyak_base- self.polyak_scale)) * param.data + (self.polyak_base- self.polyak_scale) * target_param.data)
+            target_param.data.copy_((1 - self.args.polyak) * param.data + self.args.polyak * target_param.data)
+
+
+    # def _soft_update_target_network(self, target, source):
+    #     self.polyak_scale*=self.polyak_decay
+    #     for target_param, param in zip(target.parameters(), source.parameters()):
+    #         target_param.data.copy_((1 - (self.polyak_base- self.polyak_scale)) * param.data + (self.polyak_base- self.polyak_scale) * target_param.data)
 
 
     # update the network

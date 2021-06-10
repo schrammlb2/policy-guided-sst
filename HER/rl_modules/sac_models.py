@@ -61,8 +61,8 @@ class actor(nn.Module):
         net_out = F.relu(self.fc3(x))
 
 
-        mu = self.mu_layer(net_out)/100
-        log_std = self.log_std_layer(net_out)/100 -1.
+        mu = self.mu_layer(net_out)#/100
+        log_std = self.log_std_layer(net_out)-1#/100 -1.
         log_std = torch.clamp(log_std, LOG_STD_MIN, LOG_STD_MAX)
         std = torch.exp(log_std)*forced_exploration
 
@@ -161,6 +161,41 @@ class dual_critic(nn.Module):
 
     def dual(self, x, actions):
         return self.q1(x, actions), self.q2(x, actions)
+
+
+class tdm_critic(nn.Module):
+    def __init__(self, env_params):
+        super(tdm_critic, self).__init__()
+        self.max_action = env_params['action_max']
+        self.norm1 = nn.LayerNorm(env_params['obs'] + env_params['goal'] + env_params['action'])
+        self.norm2 = nn.LayerNorm(256)
+        self.norm3 = nn.LayerNorm(256)
+        # self.norm1 = nn.BatchNorm1d(env_params['obs'] + env_params['goal'] + env_params['action'])
+        # self.norm2 = nn.BatchNorm1d(256)
+        # self.norm3 = nn.BatchNorm1d(256)
+        self.fc1 = nn.Linear(env_params['obs'] + env_params['goal'] + env_params['action'], 256)
+        self.fc2 = nn.Linear(256, 256)
+        self.fc3 = nn.Linear(256, 256)
+        self.q_out = nn.Linear(256, env_params['goal'])
+
+    def forward(self, x, actions, vec=False):
+        x = torch.cat([x, actions / self.max_action], dim=1)
+        x = self.norm1(x)
+        x = torch.clip(x, -clip_max, clip_max)
+        x = F.relu(self.fc1(x))
+        x = self.norm2(x)
+        x = F.relu(self.fc2(x))
+        x = self.norm3(x)
+        x = F.relu(self.fc3(x))
+        q_value = self.q_out(x)
+        if not vec: 
+            q_value = torch.unsqueeze(q_value.sum(dim=-1), dim=-1)
+            assert q_value.shape[-1] == 1
+
+        assert len(q_value.shape) == 2
+
+        return q_value
+
 
 
 def combined_shape(length, shape=None):

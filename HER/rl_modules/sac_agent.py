@@ -116,11 +116,12 @@ class ddpg_agent:
                 self._soft_update_target_network(self.actor_target_network, self.actor_network)
                 self._soft_update_target_network(self.critic_target_network, self.critic_network)
             # start to do the evaluation
-            success_rate = self._eval_agent()
+            success_rate, reward = self._eval_agent()
             if MPI.COMM_WORLD.Get_rank() == 0:
-                print('[{}] epoch is: {}, eval success rate is: {:.3f}'.format(datetime.now(), epoch, success_rate))
+                print('[{}] epoch is: {}, eval success rate is: {:.3f}, average reward is: {:.3f}'.format(datetime.now(), epoch, success_rate, reward))
                 torch.save([self.o_norm.mean, self.o_norm.std, self.g_norm.mean, self.g_norm.std, self.actor_network.state_dict()], \
                             self.model_path + '/model.pt')
+
 
     # pre_process the inputs
     def _preproc_inputs(self, obs, g):
@@ -243,6 +244,7 @@ class ddpg_agent:
     # do the evaluation
     def _eval_agent(self):
         total_success_rate = []
+        total_reward_rate = []
         for _ in range(self.args.n_test_rollouts):
             per_success_rate = []
             observation = self.env.reset()
@@ -264,11 +266,15 @@ class ddpg_agent:
                 obs = observation_new['observation']
                 g = observation_new['desired_goal']
                 per_success_rate.append(info['is_success'])
-            # total_success_rate.append(per_success_rate)
-            total_success_rate.append(total_r)
+            total_success_rate.append(per_success_rate)
+            total_reward_rate.append(total_r)
         total_success_rate = np.array(total_success_rate)
-        # local_success_rate = np.mean(total_success_rate[:, -1])
-        local_success_rate = np.mean(total_success_rate)
+        total_reward_rate = np.array(total_reward_rate)
+
+        local_success_rate = np.mean(total_success_rate[:, -1])
+        local_reward_rate = np.mean(total_reward_rate)
+        
         global_success_rate = MPI.COMM_WORLD.allreduce(local_success_rate, op=MPI.SUM)
-        return global_success_rate / MPI.COMM_WORLD.Get_size()
+        global_reward_rate = MPI.COMM_WORLD.allreduce(local_reward_rate, op=MPI.SUM)
+        return global_success_rate / MPI.COMM_WORLD.Get_size(), global_reward_rate / MPI.COMM_WORLD.Get_size()
 
