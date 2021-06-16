@@ -21,6 +21,9 @@ import math
 ddpg with HER (MPI-version)
 
 """
+vec = True
+# vec = False
+
 class ddpg_agent:
     def __init__(self, args, env, env_params):
         self.args = args
@@ -50,7 +53,8 @@ class ddpg_agent:
         self.critic_optim = torch.optim.Adam(self.critic_network.parameters(), lr=self.args.lr_critic)
         # her sampler
         scale = .25
-        self.vec_reward_func = lambda o, g, x=None: -np.abs(o-g)*50
+        self.vec_reward_func = lambda o, g, x=None: (np.abs(o-g)*50 < scale) - 1
+        # self.vec_reward_func = lambda o, g, x=None: -np.abs(o-g)*50 
         # self.dense_reward_fn = lambda o, g, x=None: -np.mean((o-g)**2, axis=-1)**.5*50
         # self.dense_reward_fn = lambda o, g, x=None: -np.mean(np.abs(o-g)*100, axis=-1)
         self.dense_reward_fn = lambda o, g, x=None: -np.mean(np.abs(o-g)*50, axis=-1)
@@ -238,20 +242,22 @@ class ddpg_agent:
             # do the normalization
             # concatenate the stuffs
             actions_next = self.actor_target_network(inputs_next_norm_tensor)
-            q_next_value = self.critic_target_network(inputs_next_norm_tensor, actions_next, vec=True)
+            q_next_value = self.critic_target_network(inputs_next_norm_tensor, actions_next, vec=vec)
             # q_next_value = self.critic_target_network(inputs_next_norm_tensor, actions_next)
             q_next_value = q_next_value.detach()
-            target_q_value = vec_r_tensor + self.args.gamma * q_next_value #* (-r_tensor) 
-            assert vec_r_tensor.shape == q_next_value.shape
-            # target_q_value = r_tensor + self.args.gamma * q_next_value #* (-r_tensor) 
-            # assert r_tensor.shape == q_next_value.shape
+            if vec: 
+                target_q_value = vec_r_tensor + self.args.gamma * q_next_value * (-r_tensor) 
+                assert vec_r_tensor.shape == q_next_value.shape
+            else: 
+                target_q_value = r_tensor + self.args.gamma * q_next_value * (-r_tensor) 
+                assert r_tensor.shape == q_next_value.shape
             target_q_value = target_q_value.detach()
             # clip the q value
             clip_return = 1 / (1 - self.args.gamma)
             target_q_value = torch.clamp(target_q_value, -clip_return, 0)
         # the q loss
         # real_q_value = self.critic_network(inputs_norm_tensor, actions_tensor)
-        real_q_value = self.critic_network(inputs_norm_tensor, actions_tensor, vec=True)
+        real_q_value = self.critic_network(inputs_norm_tensor, actions_tensor, vec=vec)
         critic_loss = (target_q_value - real_q_value).pow(2).mean()
         # the actor loss
         actions_real = self.actor_network(inputs_norm_tensor)
@@ -276,17 +282,25 @@ class ddpg_agent:
             per_success_rate = []
             observation = self.env.reset()
             obs = observation['observation']
-            g = observation['desired_goal']
+            # g = observation['desired_goal']
+            g = sample_valid_goal(self.env)
             total_r = 0
+            done = False
+            success = False
             for _ in range(self.env_params['max_timesteps']):
+            # while not done and not success:
                 with torch.no_grad():
                     pi = self.actor_network.normed_forward(obs, g, deterministic=True)
                     actions = pi.detach().cpu().numpy().squeeze(axis=0)
-                observation_new, _, _, info = self.env.step(actions)
+                observation_new, reward, done, info = self.env.step(actions)
                 obs = observation_new['observation']
                 r = self.sparse_reward_fn(obs, g)
                 total_r += r                
-                per_success_rate.append(r > -.5)
+                if r > -.5: 
+                    break
+                # per_success_rate.append(r > -.5)
+            per_success_rate.append(r > -.5)
+
             total_success_rate.append(per_success_rate)
             total_reward_rate.append(total_r)
         total_success_rate = np.array(total_success_rate)

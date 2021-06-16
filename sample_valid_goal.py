@@ -14,4 +14,7 @@ def sample_valid_goal(base_env):
         action = env.action_space.sample()
         observation, reward, done, info = env.step(action)
 
+    action = env.action_space.sample()
+    observation, reward, done, info = env.step(action*0)
+
     return observation['observation']

@@ -1,0 +1,10 @@
+Gradient descent: 
+	goal-only, mean of 5
+
+Policy: 
+	.4 goal
+	.3 random
+	.3 p2p
+
+RL
+	Not enforcing deterministic policy

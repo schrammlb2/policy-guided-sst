@@ -71,9 +71,9 @@ epsilon = 1/(1+mean_GD_steps)
 env_name = "Asteroids"
 
 class Asteroids: 
-    def __init__(self):
+    def __init__(self, shift=False):
         # self.env = MultiGoalEnvironment("MultiGoalEnvironment", vel_goal=True, time=True)
-        self.env = RotationEnv()#, vel_goal=False, time=True)
+        self.env = RotationEnv(shift=shift)#, vel_goal=False, time=True)
         observation = self.env.reset()
         setattr(self.env, 'set_state', set_state)
         # goal = [0,0,-.9,-.9]
@@ -83,12 +83,16 @@ class Asteroids:
         self.goal = goal
         self.control_space = GymWrapperGoalConditionedControlSpace(self.env, goal)
 
+
+        pure_rl_agent = DDPGAgentWrapper("saved_models/her_mod_" + env_name + ".pkl", goal_conditioned=True, deterministic=True)
         agent = DDPGAgentWrapper("saved_models/her_mod_" + env_name + ".pkl", goal_conditioned=True)
         p2p_agent = DDPGAgentWrapper("saved_models/her_mod_" + env_name + "_p2p.pkl", goal_conditioned=True)
-        def make_control_selector(controlSpace,metric,numSamples):
-            return RLAgentControlSelector(controlSpace,metric,numSamples, rl_agent = agent, p_goal = .5, p_random=.2, goal=goal)
-            # return RLAgentControlSelector(controlSpace,metric,numSamples, rl_agent = agent, p_goal = .5, p_random=.5, goal=goal)
-            # return RLAgentControlSelector(controlSpace,metric,numSamples, rl_agent = agent, p_goal = 0, p_random=1, goal=goal)
+        # def make_control_selector(controlSpace,metric,numSamples):
+        #     return RLAgentControlSelector(controlSpace,metric,numSamples, rl_agent = agent, p_goal = .5, p_random=.2, goal=goal)
+        
+        def pure_rl_selector(controlSpace,metric,numSamples):
+            return RLAgentControlSelector(controlSpace,metric,numSamples, rl_agent = pure_rl_agent,
+                p_goal = 1, p_random=0, goal=self.goal)
 
         def control_selector_maker(p_goal, p_random):
             rv = lambda controlSpace,metric,numSamples: RLAgentControlSelector(controlSpace,metric,numSamples, 
@@ -98,6 +102,7 @@ class Asteroids:
         # self.control_space.controlSelector = make_control_selector
         self.control_space.controlSelector = control_selector_maker(.5, .2)
         self.control_space.p2pControlSelector = control_selector_maker(0, 0)
+        self.control_space.pure_rl_controlSelector = pure_rl_selector
 
         self.set_value_function(env_name)
 
@@ -168,6 +173,15 @@ def gym_momentum_test():
 def gymAsteroidsTest():
     # gym_momentum_test()
     p = Asteroids()
+    # objective = TimeObjectiveFunction()
+    objective = TimeLengthObjectiveFunction()
+    return PlanningProblem(p.controlSpace(),p.startState(),p.goalSet(),
+                           objective=objective)
+
+
+def gymAsteroidsShiftTest():
+    # gym_momentum_test()
+    p = Asteroids(shift=True)
     # objective = TimeObjectiveFunction()
     objective = TimeLengthObjectiveFunction()
     return PlanningProblem(p.controlSpace(),p.startState(),p.goalSet(),

@@ -8,7 +8,7 @@ from .rrtstarplanner import *
 
 all_planners = ['ao-est','ao-rrt','r-est','r-est-prune','r-rrt','r-rrt-prune','rrt*','anytime-rrt','stable-sparse-rrt','sst*', 
                 'rl-rrt', 'psst', 'gdsst', 'pgdsst', 'prlsst']
-rrt_planners = ['ao-rrt','anytime-rrt','r-rrt','r-rrt-prune','stable-sparse-rrt','sst*', 'rl-rrt', 'psst', 'gdsst', 'pgdsst', 'prlsst']
+rrt_planners = ['ao-rrt','anytime-rrt','r-rrt','r-rrt-prune','stable-sparse-rrt','sst*', 'rl-rrt', 'psst', 'gdsst', 'pgdsst', 'prlsst', 'rl']
 est_planners = ['ao-est','r-est','r-est-prune']
 
 filename = {'ao-rrt':'ao_rrt',
@@ -26,12 +26,13 @@ filename = {'ao-rrt':'ao_rrt',
             'gdsst': 'gradient_descent_sst',
             'pgdsst': 'policy_guided_gradient_descent_sst',
             'rl-rrt':'rl_rrt',
+            'rl':'rl',
             'prlsst': 'policy_guided_rl_sst', 
             'sst*':'stable_sparse_rrt_star'}
 
 kinematicPlanners = set(['rrt*'])
 optimalPlanners = set(['ao-rrt','ao-est','rrt*','r-rrt','r-rrt-prune','r-est','r-est-prune','anytime-rrt','stable-sparse-rrt','sst*', 
-            'rl-rrt', 'psst', 'gdsst', 'pgdsst', 'prlsst'])
+            'rl-rrt', 'psst', 'gdsst', 'pgdsst', 'prlsst', 'rl'])
 
 def makePlanner(type,space,start,goal,
                 objective=None,
@@ -142,6 +143,11 @@ def makePlanner(type,space,start,goal,
             planner.setControlSelector(KinematicControlSelector(controlSpace,controlSpace.nextStateSamplingRange))
     elif type == 'rl-rrt':
         planner = RL_RRT(controlSpace,objective,metric,checker,**params)
+        #set direct steering functions for kinematic spaces 
+        if isinstance(controlSpace,ControlSpaceAdaptor):
+            planner.setControlSelector(KinematicControlSelector(controlSpace,controlSpace.nextStateSamplingRange))
+    elif type == 'rl':
+        planner = Pure_RL(controlSpace,objective,metric,checker,**params)
         #set direct steering functions for kinematic spaces 
         if isinstance(controlSpace,ControlSpaceAdaptor):
             planner.setControlSelector(KinematicControlSelector(controlSpace,controlSpace.nextStateSamplingRange))

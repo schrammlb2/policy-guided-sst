@@ -644,3 +644,64 @@ class RL_RRT(StableSparseRRT):
         for s in localbest[1]:
             self.doPruning(nnew,s)
         return nnew
+
+
+class Pure_RL(StableSparseRRT):
+    def getProblemControlSelector(self, controlSpace):
+        if hasattr(controlSpace, 'controlSelector'):
+            print("Using trained control selector")
+            # controlSelector = controlSpace.controlSelector(controlSpace,self.metric,1)
+            controlSelector = controlSpace.pure_rl_controlSelector(controlSpace,self.metric,1)            
+        else: 
+            print("No control selector found in environment. Using default random controller")
+            assert False
+            # controlSelector = RandomControlSelector(controlSpace,self.metric,1)
+        return controlSelector
+
+
+    def reset(self):
+        """Re-initializes the RRT* to the same start / goal, clears the
+        planning tree."""
+        x0 = self.root.x
+        goal = self.goal
+        self.bestPathCost = infty
+        self.bestPath = None
+        self.destroy()
+        self.setBoundaryConditions(x0,goal)
+        self.numIters.set(0)
+        self.last_node = None
+
+    def expand(self):
+        if self.numIters.count > 100 or self.bestPathCost < infty: 
+            return None
+
+        if self.last_node != None: 
+            nnear = self.last_node
+            xrand = None
+        else: 
+            xrand = self.configurationSampler.sample()
+            nnear = self.pickNode(xrand)
+
+        if nnear == None:
+            return None
+        u = self.controlSelector.select(nnear.x,xrand)
+
+        edge = self.controlSpace.interpolator(nnear.x,u)
+        if not self.edgeChecker.feasible(edge):
+            return None
+            
+        incremental_cost = self.objective.incremental(nnear.x,u)
+        newcost = nnear.c + incremental_cost
+        assert incremental_cost >= 0
+        assert nnear.c >= 0
+
+        #feasible edge, add it
+        nnew = self.addEdge(nnear,u,edge)
+        nnew.c = newcost
+        nnew.active = True
+
+        self.last_node = nnew
+
+        self.nearestNeighbors.add(nnew.x,nnew)
+        return nnew
+

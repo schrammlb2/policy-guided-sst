@@ -16,7 +16,7 @@ def is_approx(a, b):
 	return abs(a-b) < thresh
 
 class RotationEnv(gym.GoalEnv):
-	def __init__(self, vel_goal= False):
+	def __init__(self, vel_goal= False, shift=False):
 		self.dt = .2
 		self.acc_speed = 2
 		self.rot_speed = 7
@@ -41,6 +41,7 @@ class RotationEnv(gym.GoalEnv):
 
 		self.threshold = .1
 		self.vel_goal = vel_goal
+		self.shift = shift
 
 
 	def reset(self): 
@@ -85,6 +86,11 @@ class RotationEnv(gym.GoalEnv):
 		return reward
 
 	def step(self, action):
+		if self.shift: 
+			force_scale = 1 - .95*np.abs(self.position)
+			action = action*force_scale
+			# action = action - np.array([-.1, -.1])
+		
 		new_rotation = (self.rotation + action[1]*self.dt*self.rot_speed)%(2*math.pi)
 		# new_acceleration = np.array([action[0]*math.cos(self.rotation), action[0]*math.sin(self.rotation)]) - self.drag*self.velocity
 		# new_rotation = square_to_radian(action[1:])

@@ -5,14 +5,14 @@
 # python train_distance_function.py  --batch-size=1024  --cuda --env-name=FetchSlide --hidden-size=256 --epoch=100 --dropout-rate=.5
 
 
-mpirun -np 6 python -u train_HER.py --env-name='FetchReach' --n-epochs=10 
-mpirun -np 6 python -u train_HER.py --env-name='FetchReach' --n-epochs=10 --p2p
-mpirun -np 6 python -u train_HER.py --env-name='FetchPush' --n-epochs=50 
-mpirun -np 6 python -u train_HER.py --env-name='FetchPush' --n-epochs=50 --p2p
-mpirun -np 6 python -u train_HER.py --env-name='FetchPickAndPlace' --n-epochs=200
-mpirun -np 6 python -u train_HER.py --env-name='FetchPickAndPlace' --n-epochs=200 --p2p
-mpirun -np 6 python -u train_HER.py --env-name='FetchSlide' --n-epochs=300
-mpirun -np 6 python -u train_HER.py --env-name='FetchSlide' --n-epochs=300 --p2p
+# mpirun -np 6 python -u train_HER.py --env-name='FetchReach' --n-epochs=10 
+# mpirun -np 6 python -u train_HER.py --env-name='FetchReach' --n-epochs=10 --p2p
+# mpirun -np 6 python -u train_HER.py --env-name='FetchPush' --n-epochs=50 
+# mpirun -np 6 python -u train_HER.py --env-name='FetchPush' --n-epochs=50 --p2p
+# mpirun -np 6 python -u train_HER.py --env-name='FetchPickAndPlace' --n-epochs=200
+# mpirun -np 6 python -u train_HER.py --env-name='FetchPickAndPlace' --n-epochs=200 --p2p
+# mpirun -np 6 python -u train_HER.py --env-name='FetchSlide' --n-epochs=300
+# mpirun -np 6 python -u train_HER.py --env-name='FetchSlide' --n-epochs=300 --p2p
 
 # python collect_distance_data_p2p.py --env-name=FetchPickAndPlace --episodes=10000 --agent-location=saved_models/her_FetchPickAndPlace_p2p.pkl
 # python train_distance_function.py --env-name=FetchPickAndPlace --epochs=200 --p2p --agent-location=saved_models/her_FetchPickAndPlace.pkl
@@ -24,7 +24,32 @@ mpirun -np 6 python -u train_HER.py --env-name='FetchSlide' --n-epochs=300 --p2p
 # python train_distance_function.py --env-name=FetchSlide --epochs=200 --p2p --agent-location=saved_models/her_FetchReach.pkl
 
 
-# python main.py FetchReach gdsst pgdsst rl-rrt
-# python main.py FetchPush  gdsst pgdsst rl-rrt
-# python main.py FetchPickAndPlace gdsst pgdsst rl-rrt
-# python main.py FetchSlide gdsst pgdsst rl-rrt
+python main.py GymMomentumShift stable-sparse-rrt gdsst psst pgdsst
+python main.py GymAsteroidsShift stable-sparse-rrt gdsst psst pgdsst
+
+python main.py FetchReach rl
+python main.py FetchPush  rl
+python main.py FetchPickAndPlace rl
+# python main.py FetchSlide rl
+
+python main.py FetchPush  stable-sparse-rrt pgdsst psst 
+python main.py FetchPickAndPlace stable-sparse-rrt pgdsst psst 
+python main.py FetchPickAndPlace stable-sparse-rrt pgdsst psst 
+python main.py FetchSlide gdsst stable-sparse-rrt pgdsst psst
+
+
+python main.py FetchReach gdsst 
+python main.py FetchPush  gdsst 
+python main.py FetchPickAndPlace gdsst 
+python main.py FetchSlide gdsst 
+
+# python main.py FetchReach psst 
+# python main.py FetchPush  psst 
+# python main.py FetchPickAndPlace psst 
+# python main.py FetchSlide psst
+
+# python main.py GymMomentumShift rl stable-sparse-rrt gdsst psst pgdsst
+# python main.py GymAsteroidsShift rl stable-sparse-rrt gdsst psst pgdsst
+
+# python main.py GymMomentumShift gdsst pgdsst
+# python main.py GymAsteroidsShift gdsst pgdsst

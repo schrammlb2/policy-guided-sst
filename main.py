@@ -21,7 +21,7 @@ import copy
 import sys
 import os,errno
 
-numTrials = 200
+numTrials = 500
 
 def mkdir_p(path):
     """Quiet path making"""
@@ -70,6 +70,8 @@ all_problems = {#'Kink':geometric.kinkTest(),
                 'GymPendulum':gym_pendulum.gymPendulumTest,
                 'GymMomentum':gym_momentum.gymMomentumTest,
                 'GymAsteroids':gym_asteroids.gymAsteroidsTest,
+                'GymMomentumShift':gym_momentum.gymMomentumShiftTest,
+                'GymAsteroidsShift':gym_asteroids.gymAsteroidsShiftTest,
                 'FetchReach':fetchrobot.fetchReachTest,
                 'FetchPush':fetchrobot.fetchPushTest,
                 'FetchSlide':fetchrobot.fetchSlideTest,
@@ -80,8 +82,10 @@ all_problems = {#'Kink':geometric.kinkTest(),
 # fetchrobotWitnessRadius = 0.0025#.01
 fetchrobotWitnessRadius = .1#01
 fetchSelectionRadius = 2*fetchrobotWitnessRadius
-fetch_time = 600
-fetch_time = 30
+fetch_time = 300
+# fetch_time = 30
+# settings_2d = {'maxTime':30,'selectionRadius':0.25,'witnessRadius':0.1}
+settings_2d = {'maxTime':50,'selectionRadius':0.025,'witnessRadius':0.01}
 
 
 defaultParameters = {'maxTime':30}
@@ -92,12 +96,18 @@ customParameters = {'Kink':{'maxTime':40,'nextStateSamplingRange':0.15},
                     'GymPendulum':{'maxTime':30, 'edgeCheckTolerance':0.01,'selectionRadius':.3,'witnessRadius':0.16},
                     # 'GymPendulum':{'maxTime':7200},#,'selectionRadius':.03, 'witnessRadius':.01}, 
                     # 'GymMomentum':{'maxTime':30},#'selectionRadius':0.3,'witnessRadius':0.3},
-                    'GymMomentum':{'maxTime':30,'selectionRadius':0.25,'witnessRadius':0.1},
-                    'GymAsteroids':{'maxTime':30,'selectionRadius':0.25,'witnessRadius':0.1},
-                    'FetchReach':{'maxTime':120,'witnessRadius':fetchrobotWitnessRadius,'selectionRadius':fetchSelectionRadius},
-                    'FetchPush':{'maxTime':fetch_time},#,'witnessRadius':fetchrobotWitnessRadius,'selectionRadius':fetchSelectionRadius},
+                    'GymMomentum': settings_2d,
+                    'GymMomentumShift':settings_2d,
+                    'GymAsteroids':settings_2d,
+                    'GymAsteroidsShift':settings_2d,
+                    # 'FetchReach':{'maxTime':120,'witnessRadius':fetchrobotWitnessRadius,'selectionRadius':fetchSelectionRadius},
+                    # 'FetchPush':{'maxTime':fetch_time,'witnessRadius':fetchrobotWitnessRadius,'selectionRadius':fetchSelectionRadius},
+                    # 'FetchSlide':{'maxTime':fetch_time,'witnessRadius':fetchrobotWitnessRadius,'selectionRadius':fetchSelectionRadius},
+                    # 'FetchPickAndPlace':{'maxTime':fetch_time,'witnessRadius':fetchrobotWitnessRadius,'selectionRadius':fetchSelectionRadius},
+                    'FetchReach':{'maxTime':60,'witnessRadius':fetchrobotWitnessRadius,'selectionRadius':fetchSelectionRadius},
+                    'FetchPush':{'maxTime':150,'witnessRadius':fetchrobotWitnessRadius,'selectionRadius':fetchSelectionRadius},
                     'FetchSlide':{'maxTime':fetch_time,'witnessRadius':fetchrobotWitnessRadius,'selectionRadius':fetchSelectionRadius},
-                    'FetchPickAndPlace':{'maxTime':fetch_time,'witnessRadius':fetchrobotWitnessRadius,'selectionRadius':fetchSelectionRadius},
+                    'FetchPickAndPlace':{'maxTime':200,'witnessRadius':fetchrobotWitnessRadius,'selectionRadius':fetchSelectionRadius},
                     'Flappy':{'maxTime':120,'edgeCheckTolerance':4,'selectionRadius':70,'witnessRadius':35},
                     'DoubleIntegrator':{'maxTime':60,'selectionRadius':0.3,'witnessRadius':0.3},
                     'Dubins':{'selectionRadius':0.25,'witnessRadius':0.2},

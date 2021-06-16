@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import csv
 import math
 from collections import defaultdict
+import pdb
 
 if len(sys.argv) < 3:
     print("Usage: viewsummary.py csvfile item")
@@ -29,6 +30,7 @@ labelmap = {"lazy_rrgstar":"Lazy-RRG*",
 }
 #labelorder = ["restart_rrt_shortcut","prmstar","fmmstar","rrtstar","birrtstar","rrtstar_subopt_0.1","rrtstar_subopt_0.2","lazy_prmstar","lazy_rrgstar","lazy_birrgstar"]
 labelorder = ["ao_rrt","ao_est","repeated_rrt","repeated_est","repeated_rrt_prune","repeated_est_prune","stable_sparse_rrt","anytime_rrt","rrtstar"]
+labelorder += ['gradient_descent_sst', 'policy_guided_gradient_descent_sst', 'policy_guided_sst', 'rl']
 dashes = [[],[8,8],[4,4],[2,2],[1,1],[12,6],[4,2,2,2],[8,2,2,2,2,2],[6,2],[2,6]]
 ylabelmap = {"best cost":"Path length",
              "numEdgeChecks":"# edge checks",
@@ -37,6 +39,12 @@ ylabelmap = {"best cost":"Path length",
 timevarname = 'time'
 #timevarname = 'numMilestones'
 item = sys.argv[2]
+# if item == 'bestCost':
+#     item = 'best cost mean'
+#     # item = 'best cost'
+# if item == 'successFraction':
+#     item = 'success fraction'
+
 with open(sys.argv[1],'r') as f:
     reader = csv.DictReader(f)
     items = defaultdict(list)
@@ -46,41 +54,57 @@ with open(sys.argv[1],'r') as f:
         vstd = dict()
         vmin = dict()
         vmax = dict()
+        vci  = dict()
         skip = dict()
-        for (k,v) in row.iteritems():
-            v = float(v) if len(v) > 0 else None
+        # for (k,v) in row.iteritems():
+        for (k,v) in row.items():
+            if k[-2:] == 'ci': 
+                v = tuple(v) if len(v) > 0 else None
+            else: 
+                v = float(v) if len(v) > 0 else None
             words = k.split(None,1)
             label = words[0]
             if len(words) >= 2 and words[1] == timevarname:
                 time[label] = v
-        for (k,v) in row.iteritems():
-            v = float(v) if len(v) > 0 else None
+        # for (k,v) in row.iteritems():
+        for (k,v) in row.items():
+            if k[-2:] == 'ci': 
+                v = tuple(v) if len(v) > 0 else None
+            else: 
+                v = float(v) if len(v) > 0 else None
             words = k.split(None,1)
             label = words[0]
             if item == 'best cost' and len(words) >= 2 and words[1] == 'success fraction':
-                if v < successFraction:
+                if type(v) == type(None) or v < successFraction:
                     skip[label] = True
                 else:
                     skip[label] = False
             if len(words) >= 2 and words[1].startswith(item):
                 suffix = words[1][len(item)+1:]
-                if suffix=='mean': #will have min,max,mean,etc
+                # if suffix=='mean': #will have min,max,mean,etc
+                #     vmean[label] = v
+                # elif suffix=='std':
+                #     vstd[label] = v
+                # elif suffix=='max':
+                #     vmax[label] = v
+                # elif suffix=='min':
+                #     vmin[label] = v
+                # elif suffix=='ci':
+                #     vci[label] = v
+                if suffix=='':
                     vmean[label] = v
-                elif suffix=='std':
-                    vstd[label] = v
-                elif suffix=='max':
-                    vmax[label] = v
-                elif suffix=='min':
-                    vmin[label] = v
-                elif suffix=='':
-                    vmean[label] = v
+                # elif suffix=='':
+                #     vmean[label] = v
                 else:
                     print("Warning, unknown suffix",suffix)
         
-        for label,t in time.iteritems():
-            if label in skip and skip[label]:
-                items[label].append((t,None))
-            elif label in vmean:
+        # for label,t in time.iteritems():
+        for label,t in time.items():
+            # if label in skip and skip[label]:
+            #     pdb.set_trace()
+            #     items[label].append((t,None))
+            # elif label in vmean:
+            if label in vmean:
                 items[label].append((t,vmean[label]))
             else:
                 print("Warning, no item",item,"for planner",label,"read")
@@ -97,18 +121,34 @@ with open(sys.argv[1],'r') as f:
     minx = 0
     maxx = 0
     ax1.set_ylabel(ylabelmap.get(item,item))
-    for n,label in enumerate(labelorder):
-        if label not in items: continue
-        plot = items[label]
-        if len(items[label])==0:
-            print("Skipping item",label
-        x,y = zip(*plot)
-        minx = min(minx,*[v for v in x if v is not None])
-        maxx = max(maxx,*[v for v in x if v is not None])
-        plannername = labelmap[label] if label in labelmap else label
-        print("Plotting",plannername)
-        line = ax1.plot(x,y,label=plannername,dashes=dashes[n])
-        plt.setp(line,linewidth=1.5)
+    if item[-2:] == 'ci': 
+        for n,label in enumerate(labelorder):
+            if label not in items: continue
+            # pdb.set_trace()
+            plot = items[label]
+            if len(items[label])==0:
+                print("Skipping item",label)
+            x,y = zip(*plot)
+            minx = min(minx,*[v for v in x if v is not None])
+            maxx = max(maxx,*[v for v in x if v is not None])
+            plannername = labelmap[label] if label in labelmap else label
+            print("Plotting",plannername)
+            line = ax1.plot(x,y,label=plannername)#,dashes=dashes[n])
+            plt.setp(line,linewidth=1.5)
+    else: 
+        for n,label in enumerate(labelorder):
+            if label not in items: continue
+            # pdb.set_trace()
+            plot = items[label]
+            if len(items[label])==0:
+                print("Skipping item",label)
+            x,y = zip(*plot)
+            minx = min(minx,*[v for v in x if v is not None])
+            maxx = max(maxx,*[v for v in x if v is not None])
+            plannername = labelmap[label] if label in labelmap else label
+            print("Plotting",plannername)
+            line = ax1.plot(x,y,label=plannername)#,dashes=dashes[n])
+            plt.setp(line,linewidth=1.5)
     #plt.legend(loc='upper right');
     plt.legend();
     #good for bugtrap cost

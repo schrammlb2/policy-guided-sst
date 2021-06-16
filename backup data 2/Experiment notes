@@ -1,0 +1,14 @@
+Gradient descent: 
+	goal-only, mean of 5
+	Only performed 1/4 of the time
+
+Policy: 
+	.4 goal
+	.3 random
+	.3 p2p
+
+RL
+	Deterministic policy
+
+Did gdsst + pgdsst for all Fetch envs
+	Seeing if reduced GD proportion improves success rate

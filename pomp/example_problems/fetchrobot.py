@@ -116,15 +116,12 @@ class FetchRobot:
 
     def set_control_selector(self, agent_name):
         if use_agent: 
+            pure_rl_agent = DDPGAgentWrapper(agent_loc + agent_name + goal_suffix, goal_conditioned=True, deterministic=True)
             agent = DDPGAgentWrapper(agent_loc + agent_name + goal_suffix, goal_conditioned=True)
             p2p_agent = DDPGAgentWrapper(agent_loc + agent_name + p2p_suffix, goal_conditioned=True)
-            def make_control_selector(controlSpace,metric,numSamples):
-                return RLAgentControlSelector(controlSpace,metric,numSamples, rl_agent = agent, p2p_agent=p2p_agent,
-                    p_goal = p_goal, p_random=p_random, goal=self.goal)
-
-            def p2p_make_control_selector(controlSpace,metric,numSamples):
-                return RLAgentControlSelector(controlSpace,metric,numSamples, rl_agent = agent, p2p_agent=p2p_agent,
-                    p_goal = 0, p_random=0, goal=self.goal)
+            def pure_rl_selector(controlSpace,metric,numSamples):
+                return RLAgentControlSelector(controlSpace,metric,numSamples, rl_agent = pure_rl_agent,
+                    p_goal = 1, p_random=0, goal=self.goal)
 
             def control_selector_maker(p_goal, p_random):
                 rv = lambda controlSpace,metric,numSamples: RLAgentControlSelector(controlSpace,metric,numSamples, 
@@ -135,6 +132,7 @@ class FetchRobot:
             self.control_space.controlSelector = control_selector_maker(p_goal, 1-p_goal)
             self.control_space.p2pControlSelector = control_selector_maker(0, 0)
             self.control_space.prlcontrolSelector = control_selector_maker(p_goal, p_random)
+            self.control_space.pure_rl_controlSelector = pure_rl_selector#control_selector_maker(1, 0)
 
             # self.control_space.controlSelector = make_control_selector
             # self.control_space.p2pControlSelector = p2p_make_control_selector

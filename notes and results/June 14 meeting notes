@@ -1,0 +1,24 @@
+visualizations for paper
+	show random policy for t=0 
+		Success ratio only
+
+	Show plots for first ~50 seconds only for PickAndPlace
+
+	Domain shift 
+		Add drift to Asteroids environment
+
+	Obstacles
+
+	Confirm results
+		Confidence intervals
+
+
+	Start on paper
+		Look at Rl-RRT and see how they frame problem and explanation
+
+	Add other search algorithms to paper? 
+
+	Priorities
+		1) CI and confirming results
+		2) Writing
+		3) domain shift for asteroids -- add drift

@@ -8,6 +8,8 @@ import csv
 import numpy as np
 import bisect
 from collections import defaultdict
+import pdb
+from stats import bayes_interval
 
 if len(sys.argv) < 2:
     print("Usage: processresults.py folder [outfile]")
@@ -29,12 +31,22 @@ class Trajectory:
     def eval(self,t):
         """Evaluates the trajectory"""
         (i,u) = self.getSegment(t)
+        # if t < self.times[0]:
+        #     return float('inf')
         if i<0: return self.values[0]
         elif i>=len(self.values): return self.values[-1]
         #piecewise constant interpolation
         #return self.values[i]
         #linear constant interpolation
         return self.values[i] + u*(self.values[i+1]-self.values[i])
+
+    def solved(self, t):
+        if t < self.times[0] or len(self.times) == 0: 
+            return False
+        if self.values[-1] == float('inf'): 
+            return False
+        return True
+
     def getSegment(self,t):
         """Returns the index and interpolation parameter for the
         segment at time t."""
@@ -60,24 +72,34 @@ def parse_data(csvfn):
         itemtraces = defaultdict(lambda:defaultdict(Trajectory))
         maxtime = 0
         for row in reader:
-            trial = int(row[trialvarname])
-            time = float(row[timevarname])
-            maxtime = max(time,maxtime)
-            for (k,v) in row.iteritems():
-                if k in ignorevars: continue
-                trace = itemtraces[k][trial]
-                trace.append(time,float(v))
+            try: 
+                trial = int(row[trialvarname])
+                time = float(row[timevarname])
+                maxtime = max(time,maxtime)
+                # for (k,v) in row.iteritems():
+                for (k,v) in row.items():
+                    if k in ignorevars: continue
+                    trace = itemtraces[k][trial]
+                    trace.append(time,float(v))
+            except: 
+                pass
         res = defaultdict(list)
         dt = 0.1
         t = 0
         while t < maxtime:
             res['time'].append(t)
-            for k,trials in itemtraces.iteritems():
+            # for k,trials in itemtraces.iteritems():
+            for k,trials in itemtraces.items():
                 data = [trace.eval(t) for trace in trials.values()]
                 cleandata = [v for v in data if np.isfinite(v)]
                 if k == 'best cost':
-                    successRate = np.mean([1 if np.isfinite(v) else 0 for v in data])
+                    # successRate = np.mean([1 if np.isfinite(v) else 0 for v in data])
+                    success_list = [1*trace.solved(t) for trace in trials.values()]
+                    successes = np.sum(success_list)
+                    failures = len(success_list) - successes
+                    successRate = np.mean(success_list)
                     res['success fraction'].append(successRate)
+                    res['success fraction ci'].append(list(bayes_interval(successes, failures, z=.95)) + [successRate])
                 if k in meanvars:
                     if len(cleandata) > 0:
                         res[k].append(np.mean(cleandata))
@@ -88,6 +110,11 @@ def parse_data(csvfn):
                         res[k+' mean'].append(np.mean(cleandata))
                         res[k+' std'].append(np.std(cleandata))
                         res[k+' min'].append(min(cleandata))
+
+                        res[k+' ci'].append(
+                            (np.mean(cleandata) - 2*np.std(cleandata)/len(cleandata)**.5, 
+                             np.mean(cleandata) + 2*np.std(cleandata)/len(cleandata)**.5, 
+                             np.mean(cleandata)))
                         if len(data) != len(cleandata):
                             res[k+' max'].append(float('inf'))
                         else:
@@ -115,16 +142,20 @@ def process(folder,outfile=None):
     print("Saving summary statistics to",fn)
     with open(fn,'w') as f:
         headers = []
-        for (name,fdata) in data.iteritems():
-            for (k,v) in fdata.iteritems():
+        # for (name,fdata) in data.iteritems():
+        #     for (k,v) in fdata.iteritems():
+        for (name,fdata) in data.items():
+            for (k,v) in fdata.items():
                 headers.append(name+' '+k)
         writer=csv.DictWriter(f,sorted(headers))
         writer.writeheader()
         i = 0
         while True:
             item = dict()
-            for (name,fdata) in data.iteritems():
-                for (k,v) in fdata.iteritems():
+            # for (name,fdata) in data.iteritems():
+            #     for (k,v) in fdata.iteritems():
+            for (name,fdata) in data.items():
+                for (k,v) in fdata.items():
                     if i < len(v):
                         item[name+' '+k] = v[i]
             if len(item)==0: break

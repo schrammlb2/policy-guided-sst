@@ -16,7 +16,8 @@ from train_distance_function import *
 infty = float('inf')
 control_duration = 25
 constant_extension_chance = 0
-constant_extension_chance = .25
+# constant_extension_chance = .25
+gd_chance = 1
 
 class GymWrapperControlSpace(ControlSpace):
     def __init__(self, env):
@@ -272,9 +273,19 @@ class GDValueSampler(ConfigurationSpace):
         else: 
             self.denorm = denorm
 
+        mean_GD_steps = 3
+        self.epsilon = 1/(1+mean_GD_steps)
+
 
     def sample(self) -> list:
         k = np.random.geometric(self.epsilon) - 1
+        #With probability (1-gd_chance), skip gradient descent
+        # if np.random.rand() > gd_chance: 
+        #     k = 0
+        if np.random.rand() > gd_chance: 
+            goal_target = True
+        else: 
+            goal_target = False
 
         #configuration space sampler is standard gaussian
         if self.zero_buffer:
@@ -320,9 +331,12 @@ class GDValueSampler(ConfigurationSpace):
             total = g + p2p
             var_r = g/total
             reg_loss = .5*(s_norm**2).sum()
+            if goal_target: 
+                loss = -g + reg_loss
+            else: 
+                loss = -total + reg_loss + constraint_constant*(var_r-r)**2
             # loss = -total + constraint_constant*(var_r-r)**2
-            # loss = -total + reg_loss + constraint_constant*(var_r-r)**2
-            loss = -g + reg_loss
+            
             loss.backward()
             opt.step()
             traj.append(s_norm.clone().detach())
@@ -511,12 +525,13 @@ class RLAgentControlSelector(ControlSelector):
         #     return sequence
 
 class RLAgentWrapper:
-    def __init__(self, filename, goal_conditioned = True):
+    def __init__(self, filename, goal_conditioned = True, deterministic=False):
         with open(filename, 'rb') as f:
             self.agent = pickle.load(f)
 
         self.agent.eval()
         self.goal_conditioned = goal_conditioned
+        self.deterministic = deterministic
 
     def sample(self, x, goal): 
         raise NotImplementedError
@@ -542,7 +557,7 @@ class DDPGAgentWrapper(RLAgentWrapper):
         if self.goal_conditioned: 
             # return_value = normed_forward(self, obs, g, deterministic=False)[0].detach().tolist()
             # return_value = self.agent.normed_forward(x, goal, deterministic=True)[0].detach().tolist()
-            return_value = self.agent.normed_forward(x, goal, deterministic=False)[0].detach().tolist()
+            return_value = self.agent.normed_forward(x, goal, deterministic=self.deterministic)[0].detach().tolist()
             # goal_tensor = torch.tensor(goal).unsqueeze(dim=0)
             # inpt = torch.cat((x_tensor, goal_tensor), dim=-1)
             # return_value = self.agent(inpt)[0].detach().tolist()
