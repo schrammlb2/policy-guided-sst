@@ -17,7 +17,8 @@ if len(sys.argv) < 2:
 
 trialvarname = 'trial'
 timevarname = 'plan time'
-ignorevars = [trialvarname,timevarname,'plan iters','numComponents','numIters','gridMin','gridMax']
+timevarname = 'plan iters'
+ignorevars = [trialvarname,timevarname,'numComponents','numIters','gridMin','gridMax']#,'plan iters']
 #only output means for the following
 meanvars = ['configCheckTime','knnTime','connectTime','lazyTime','lazyPathCheckTime','shortestPathsTime','numEdgeChecks','numEdgesPrechecked','numMilestones']
 
@@ -92,9 +93,12 @@ def parse_data(csvfn):
             for k,trials in itemtraces.items():
                 data = [trace.eval(t) for trace in trials.values()]
                 cleandata = [v for v in data if np.isfinite(v)]
+                # cutoff = 100
+                # cleandata = [v for v in data if v < cutoff]
                 if k == 'best cost':
                     # successRate = np.mean([1 if np.isfinite(v) else 0 for v in data])
                     success_list = [1*trace.solved(t) for trace in trials.values()]
+                    # success_list = [1*trace.solved(t) and trace.eval(t) < cutoff for trace in trials.values()]
                     successes = np.sum(success_list)
                     failures = len(success_list) - successes
                     successRate = np.mean(success_list)
@@ -107,6 +111,9 @@ def parse_data(csvfn):
                         res[k].append(None)
                 else:
                     if len(cleandata) > 0:
+                        # cutoff = 100
+                        # cleandata = np.minimum(cutoff, np.array(cleandata))
+                        # cleandata = [v for v in data if v < cutoff]
                         res[k+' mean'].append(np.mean(cleandata))
                         res[k+' std'].append(np.std(cleandata))
                         res[k+' min'].append(min(cleandata))

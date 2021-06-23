@@ -22,3 +22,31 @@ visualizations for paper
 		1) CI and confirming results
 		2) Writing
 		3) domain shift for asteroids -- add drift
+
+--------------------------------------------------------------------------------------------------------------------------------------
+I had a couple questions on how to motivate the methods in the paper. 
+	Earlier, we talked about motivating gradient descent sampling by increasing the likelihood of sampling a point near the optimal path. However, as it started to seem like the point-to-point value function was an unreliable measure of distance, we switched to doing gradient descent on the goal alone, which gave us better performance, but is less well-motivated. 
+
+--------------------------------------------------------------------------------------------------------------------------------------
+
+paper writing agenda
+	Outline Methods
+	Write methods
+	Outline New Results
+	Write up new results with new graphics
+
+	outline Intro
+	Pillage related work section for stuff to move to intro
+	Patch up pillaged related work
+	Write intro
+	outline conclusions
+	Write conclusions
+
+    Our method is motivated by a desire to reduce the dependence of SST on the dimension of the problem. The asymptotic performance of SST can be written as $O(\delta^{-d} \frac{k}{\gamma \rho_{\delta \to \delta_c}})$, where $k$ is the path length, $d$ is the dimension of the state space, $\delta$ is a constant determined by the desired level of sparsity and radius of the best-near search, $\gamma$ is the chance of picking a point near the optimal path, and $\rho_{\delta \to \delta_c}$ is the chance of sampling a near-optimal control given that a node on a near-optimal path is being expanded. It is easy to see that both $\delta^{-d}$ and $\frac{1}{\gamma}$ are exponential in the dimension of the state space, and that $\frac{1}{\rho_{\delta \to \delta_c}}$ is exponential in the dimension of the control space. We propose two changes to the SST algorithm to minimize the size of these constants, in order to make SST more viable in high-dimensional state spaces. 
+    
+	We propose using reinforcement learning to train two policies on the problem.  The first is conditioned on a description of the goal region, where the agent is trained to reach the goal region. The second is conditioned on a full state description, where the agent attempts to move the specified state. For problems where the goal is a small neighborhood of states about a single state, such as many 2D navigation problems with no complex kinodynamics, rather than a class of states, the same policy may be used for both. We then replace SST's uniform random control sampling with sampling from a mixture of these policies, using random controls, the goal-conditioned policy, and the state-conditioned policy each a set fraction of the time. Like RL-RRT, the state-conditioned policy attempts to reach the sampled point to which the current node is a nearest neighbor, while the goal-conditioned policy always tries to reach the goal. The use of two distinct policies is necessary for two reasons. Firstly, in many tasks, finding states that are both physically realizable and satisfy the goal criteria is non-trivial. For instance, finding a viable goal state for a grasping problem may involve identifying viable grasp positions, which is a problem that itself may require machine learned models to solve. Secondly, our experience indicates that for high-dimensional-problems, it may be dramatically harder for standard reinforcement learning algorithms to learn to navigate to "stronger" goals that provide more specifications (eg, the position of an entire robotic arm) than it is to navigate to "weaker" goals that provide fewer specifications (eg, the position of the end effector). While navigating to a full state description makes for efficient exploration, if the learned policy is not trained to convergence, the resulting planner may be unreliable. 
+
+ 	Secondly, we propose doing gradient descent on the sample points. The motivation for this is that, as discussed above, many interesting problems have no simple way of sampling from the set of reachable goal states. By sampling random states and then optimizing them by gradient descent on an RL-learned value function, we can bias the growth of the search tree towards goal states without an explicit goal-sampler. (? We find this is especially useful in the absense of a good goal-seeking policy). We sample the number of gradient descent steps to take from a geometric distribution with mean $\mu$. This ensures that we always retain at least a $\frac{1}{\mu}$ chance of taking 0 gradient descent steps, which means we retain all the asymptotic-sampling properties of SST. It also ensures that for any sampled point, we have a lower-bounded chance of converging to within $\epsilon$ of the local minimum for any $\epsilon$. If the minimum of the learned value function is in a goal state (which is very likely as these are terminal states with maximum reward), then we have a lower-bounded chance of sampling arbitrarily close to the goal state. We expect this approach to be most useful in high-dimensions, where the proportion of goal-states to the total volume may become extremely small.
+
+    
+    Our algorithm replaces the Monte\_Carlo\_Prop function of SST with the RL\_Prop function and the Sample\_State function with Gradient\_Descent\_Sampling function, both described below. We then show that these functions preserve the properties necessary for SST to be asymptotically $\delta$-robust near-optimal. We call this modified version of SST "Policy-Guided SST", or PSST

@@ -27,6 +27,7 @@ labelmap = {"lazy_rrgstar":"Lazy-RRG*",
             "birrtstar":"RRT*",
             "rrtstar_subopt_0.1":"LBT-RRT*(0.1)",
             "rrtstar_subopt_0.2":"LBT-RRT*(0.2)",
+            "policy_guided_gradient_descent_sst": "PSST",
 }
 #labelorder = ["restart_rrt_shortcut","prmstar","fmmstar","rrtstar","birrtstar","rrtstar_subopt_0.1","rrtstar_subopt_0.2","lazy_prmstar","lazy_rrgstar","lazy_birrgstar"]
 labelorder = ["ao_rrt","ao_est","repeated_rrt","repeated_est","repeated_rrt_prune","repeated_est_prune","stable_sparse_rrt","anytime_rrt","rrtstar"]
@@ -36,7 +37,12 @@ ylabelmap = {"best cost":"Path length",
              "numEdgeChecks":"# edge checks",
 }
 
+# ignored_labels = ['gradient_descent_sst']
+ignored_labels = ['policy_guided_sst', 'gradient_descent_sst']
+# ignored_labels = []
+
 timevarname = 'time'
+# timevarname = 'numIters'
 #timevarname = 'numMilestones'
 item = sys.argv[2]
 # if item == 'bestCost':
@@ -107,17 +113,24 @@ with open(sys.argv[1],'r') as f:
     #fig = plt.figure(figsize=(4,2.7))
     fig = plt.figure(figsize=(7,5))
     ax1 = fig.add_subplot(111)
-    if timevarname=='time':
-        ax1.set_xlabel("Time (s)")
-    else:
-        ax1.set_xlabel("Iterations")
-    # ax1.set_xlabel("Iterations")
+    # if timevarname=='time':
+    #     ax1.set_xlabel("Time (s)")
+    # else:
+    #     ax1.set_xlabel("Iterations")
+    ax1.set_xlabel("Iterations")
     minx = 0
     maxx = 0
     ax1.set_ylabel(ylabelmap.get(item,item))
+    # x_list = [items[label][-1][0] for label in labelorder if (
+    #     label in items and 
+    #     label not in ignored_labels and 
+    #     items[label][-1][0] is not None)]
+    # maximum_x = max(x_list)
     for n,label in enumerate(labelorder):
         if label not in items: continue
+        if label in ignored_labels: continue
         plot = items[label]
+        # plot.append([maximum_x, plot[-1][1]])
         if len(items[label])==0:
             print("Skipping item",label)
         x,y = zip(*plot)
@@ -142,6 +155,9 @@ with open(sys.argv[1],'r') as f:
             line = ax1.plot(x,y_mean,label=plannername)#,dashes=dashes[n])
             plt.setp(line,linewidth=1.5)
     #plt.legend(loc='upper right');
+    # plt.title("Simple 2D -- Success rate")
+    plt.title("FetchReach -- Success rate")
+    plt.title("FetchReach -- Cost")
     plt.legend();
     #good for bugtrap cost
     #plt.ylim([2,3])

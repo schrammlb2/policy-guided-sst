@@ -24,18 +24,21 @@
 # python train_distance_function.py --env-name=FetchSlide --epochs=200 --p2p --agent-location=saved_models/her_FetchReach.pkl
 
 
-python main.py GymMomentumShift stable-sparse-rrt gdsst psst pgdsst
-python main.py GymAsteroidsShift stable-sparse-rrt gdsst psst pgdsst
+# python main.py GymMomentum stable-sparse-rrt gdsst psst pgdsst
+# python main.py GymAsteroids stable-sparse-rrt gdsst psst pgdsst
 
-python main.py FetchReach rl
-python main.py FetchPush  rl
-python main.py FetchPickAndPlace rl
+# python main.py GymMomentumShift stable-sparse-rrt gdsst psst pgdsst
+# python main.py GymAsteroidsShift stable-sparse-rrt gdsst psst pgdsst
+
+# python main.py FetchReach rl
+# python main.py FetchPush  rl
+# python main.py FetchPickAndPlace rl
 # python main.py FetchSlide rl
 
-python main.py FetchPush  stable-sparse-rrt pgdsst psst 
-python main.py FetchPickAndPlace stable-sparse-rrt pgdsst psst 
-python main.py FetchPickAndPlace stable-sparse-rrt pgdsst psst 
-python main.py FetchSlide gdsst stable-sparse-rrt pgdsst psst
+# python main.py FetchPush psst 
+# python main.py FetchPickAndPlace stable-sparse-rrt pgdsst psst 
+# python main.py FetchReach stable-sparse-rrt pgdsst psst 
+python main.py FetchSlide  pgdsst
 
 
 python main.py FetchReach gdsst 
