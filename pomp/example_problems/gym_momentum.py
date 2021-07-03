@@ -73,11 +73,14 @@ class Momentum:
         self.env = MultiGoalEnvironment("MultiGoalEnvironment", vel_goal=False, time=True, shift=shift)
         observation = self.env.reset()
         setattr(self.env, 'set_state', set_state)
-        # goal = [0,0,-.9,-.9]
-        goal = observation['desired_goal'].tolist()
-        self.start_state = observation['observation'].tolist()
-        # self.start_state = [-.95, -.95, 0., 0.0]
+        self.start_state = [-.95, -.95, 0., 0.0]
+        goal = [0,0]#,-.9,-.9]
+        self.env.goal = np.array(goal)
+        self.env.set_state(self.env, self.start_state)
+        # goal = observation['desired_goal'].tolist()
+        # self.start_state = observation['observation'].tolist()
         self.goal = goal
+
         self.control_space = GymWrapperGoalConditionedControlSpace(self.env, goal)
 
         pure_rl_agent = DDPGAgentWrapper("saved_models/her_mod_MultiGoalEnvironment.pkl", goal_conditioned=True, deterministic=True)

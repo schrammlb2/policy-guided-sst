@@ -45,12 +45,12 @@ def testPlannerDefault(problem,problemName,maxTime,plannerType,**plannerParams):
         # test.testPlanner(planner,numTrials,maxTime,os.path.join(folder,allplanners.filename[plannerType]+'.csv'))
 
     #Variants
-    test.testPlanner(problem,numTrials,maxTime,os.path.join(folder,allplanners.filename[plannerType]+'.csv'), plannerType, **plannerParams)
+    # test.testPlanner(problem,numTrials,maxTime,os.path.join(folder,allplanners.filename[plannerType]+'.csv'), plannerType, **plannerParams)
     # test.recordIters(problem,numTrials,maxTime,os.path.join(folder,allplanners.filename[plannerType]+'.csv'), plannerType, **plannerParams)
     # test.record_monitor(problem,numTrials,maxTime,os.path.join(folder,allplanners.filename[plannerType]+'.csv'), plannerType, problemName,  **plannerParams)
     # test.record_video_recorder(problem,numTrials,maxTime,os.path.join(folder,allplanners.filename[plannerType]+'.csv'), plannerType, problemName,  **plannerParams)
     # test.record_manual(problem,numTrials,maxTime,os.path.join(folder,allplanners.filename[plannerType]+'.csv'), plannerType, problemName,  **plannerParams)
-
+    test.path_visualization_2D(problem,numTrials,maxTime,os.path.join(folder,allplanners.filename[plannerType]+'.csv'), plannerType, problemName,  **plannerParams)
 
 # all_planners = ['ao-est','ao-rrt','r-est','r-est-prune','r-rrt','r-rrt-prune','rrt*','anytime-rrt','stable-sparse-rrt', 
 #                 'rl-rrt', 'psst', 'gdsst', 'pgdsst', 'prlsst']
@@ -85,8 +85,9 @@ fetchrobotWitnessRadius = .1#01
 fetchSelectionRadius = 2*fetchrobotWitnessRadius
 fetch_time = 300
 # fetch_time = 30
-# settings_2d = {'maxTime':30,'selectionRadius':0.25,'witnessRadius':0.1}
-settings_2d = {'maxTime':50,'selectionRadius':0.025,'witnessRadius':0.01}
+settings_2d = {'maxTime':100,'selectionRadius':0.25,'witnessRadius':0.1}
+# settings_2d = {'maxTime':30,'selectionRadius':0.1,'witnessRadius':0.05}
+# settings_2d = {'maxTime':50,'selectionRadius':0.025,'witnessRadius':0.01}
 
 
 defaultParameters = {'maxTime':30}
