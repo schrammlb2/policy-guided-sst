@@ -1,6 +1,20 @@
+<<<<<<< HEAD
 Wed Jun 16 15:21:44 2021
 ERROR: Expired activation key
 
 Wed Jun 16 15:21:54 2021
 ERROR: Expired activation key
+=======
+Thu Jun 24 15:07:28 2021
+ERROR: GLEW initalization error: Missing GL version
+
+Thu Jun 24 15:20:07 2021
+ERROR: GLEW initalization error: Missing GL version
+
+Thu Jun 24 15:28:14 2021
+ERROR: GLEW initalization error: Missing GL version
+
+Thu Jun 24 15:31:43 2021
+ERROR: GLEW initalization error: Missing GL version
+>>>>>>> fb643279dc406b15813241002448ed4428e962b2
 

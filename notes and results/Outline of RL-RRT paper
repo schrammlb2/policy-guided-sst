@@ -1,0 +1,91 @@
+Outline of RL-RRT paper
+
+Intro
+	1)  two criteria: 
+			find path
+			find good path
+
+	2) 	Many standard methods require optimal steering fn
+			Steering fn usually not available
+			Imperfect when it is available
+
+	3) Rl solves many requirements of optimal steering fns, and can also handle obstacles
+			AutoRL makes this easy
+
+	4) RL + RRT outperforms SST on important problems
+
+Related works: 
+	1) Properties and failings of Steering-function-based planners
+
+	2) Desired properties of distance function
+
+Methods: 
+	1) Overview
+		Learn agent
+		learn TTR fn
+		use planner
+
+	2) Learn agent
+	3) Learn TTR
+	4) Planning algorithm
+
+Evaluation
+
+-----------------------------------------------------------------------------------------------
+
+Our paper
+
+Introduction 
+	1) The problem
+		-Our focus -- high dimensional planning problems with non-trivial dynamics, such as object manipulation with a robotic arm
+
+	2) Planning algorithms often struggle to find good paths 
+		-Especially true in higher dimensions where it is not feasible to fully explore the state space
+		-Ex, SST time bound for asymptotic near-optimality is *massive*, exponential in the dimension state space
+		May 
+	3) RL agents may sometimes be able to solve this problem, but may not be reliable and have usually have no guarantee of convergence
+		- On important or dangerous tasks, may frequently want guarantee of success or path safety that standard RL algorithms cannot provide.
+		- Popular algorithms, like HER and DDPG, are known to be biased, and may not converge to near-optimal polices even when they do converge
+
+	4) Solution
+		Use RL agent to bias the search of planning algorithm with known properties
+		RL-agent ensures that likely-good paths are checked early, while planner provides backup when these solutions do not work, and gives agent 'multiple tries' to find good solution
+
+Related works
+	...
+
+	RL-RRT
+		overview, etc, etc, but two main problems
+		1) RL-RRT rejects points that are too far away
+			This means in high-dimensional spaces, number of samples needed to find 'nearby' point blows up exponentially
+		2) Learning point-to-point agent turns out to be *way* harder than learning goal-conditioned agent in high dimensions
+			Size of target space shrinks exponentially with number of dimensions it's restricted in
+			May be easier to just solve the problem with RL directly than to learn point-to-point agent necessary for planning
+		Unlike RL-RRT, our method does not require that RL agent is trained *to convergence*. On hard problems where RL only offers a meager success rate, we show that inclusion of the agent still benefits the planner
+
+Methods: 
+	1) Overview
+
+	2) Agent
+		Learning agent
+			HER + SAC
+			SAC is desirable, because higher-entropy policy means greater exploration for the planner to work with
+			1 goal-conditioned agent, 1 state-conditioned agent
+		Using
+			set chance of random, goal-conditioned, and state-conditioned expansions
+
+	3) Sampling 
+		Use value function from training agent
+			Do gradient descent on sampled points 
+		Biases growth of tree towards goal state
+
+	4) Planning algorithm
+		as before
+
+Results 
+	2D environments
+	Robotic environments
+	Distributional shift
+
+Conclusion
+

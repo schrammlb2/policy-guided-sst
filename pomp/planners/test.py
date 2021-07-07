@@ -11,6 +11,8 @@ import types
 from gym.wrappers import Monitor
 from gym.wrappers.monitoring.video_recorder import VideoRecorder
 import pyautogui, time
+from ..spaces.plot_gd_sample import plot_traj, plot_roadmap
+import pdb
 
 # def testPlanner(planner,numTrials,maxTime,filename):    
 def testPlanner(problem,numTrials,maxTime,filename, plannerType, **plannerParams):    
@@ -111,8 +113,8 @@ def recordIters(problem,numTrials,maxTime,filename, plannerType, **plannerParams
     numupdates = 0
     iters = 0
     hadException = False
-    # while time.time()-t0 < maxTime:
-    while time.time()-t0 < maxTime and curCost == float('inf'):
+    while time.time()-t0 < maxTime:
+    # while time.time()-t0 < maxTime and curCost == float('inf'):
         planner.planMore(100)
         iters += 100
         f.write(str(trial)+","+str(iters)+","+str(t1-t0)+'\n')
@@ -397,3 +399,104 @@ def record_manual(problem,numTrials,maxTime,filename, plannerType, problemName, 
 
         f.write(str(trial)+","+str(iters)+","+str(maxTime)+","+str(curCost)+'\n')
     f.close()
+
+
+
+def path_visualization_2D(problem,numTrials,maxTime,filename, plannerType, problemName, **plannerParams):    
+    print("Testing planner for %d trials, %f seconds"%(numTrials,maxTime))
+    print("Saving to",filename)
+    # f = open(filename,'w')
+    # f.write("trial,plan iters,plan time,best cost\n")
+    for trial in range(numTrials):
+        print()
+        print("Trial",trial+1)# 
+        problem_instance = problem()
+        planner = problem_instance.planner(plannerType,**plannerParams)
+        planner.reset()
+        curCost = float('inf')
+        t0 = time.time()
+        numupdates = 0
+        iters = 0
+        hadException = False
+        # while time.time()-t0 < maxTime:
+        for _ in range(maxTime):
+        # while time.time()-t0 < maxTime and curCost == float('inf'):
+            planner.planMore(10)
+            iters += 10
+            if planner.bestPathCost != None and planner.bestPathCost != curCost:
+                numupdates += 1
+                curCost = planner.bestPathCost
+                t1 = time.time()
+                # f.write(str(trial)+","+str(iters)+","+str(t1-t0)+","+str(curCost)+'\n')
+        # if hasattr(planner,'stats'):
+        #     print
+        #     temp = Profiler()
+        #     temp.items["Stats:"] = planner.stats
+        #     temp.pretty_print()
+        print()
+        print("Final cost:",curCost)
+        print()
+
+        controlSpace = problem_instance.controlSpace
+
+
+        env = controlSpace.env
+        goal = env.goal
+
+        path = planner.getPath()
+        roadmap = planner.getRoadmap()
+        # initial_state = np.array(path[0][0])
+        initial_state = np.array(roadmap[0][0])
+        env.set_state(env, initial_state)
+
+        control_sequence = []
+        if path != None: 
+            for mini_control_seq in path[1]:
+                for control in mini_control_seq: 
+                    control_sequence.append(np.array(control))
+
+        import pdb
+        obs2 = initial_state.tolist()
+        epsilon = .01
+        reward = controlSpace.goal_contains(obs2)
+        # env.render()
+        # pdb.set_trace()
+
+        i=0
+        # file_loc = './demos/' + problemName + '_' + plannerType + '/'
+        # screenshot = pyautogui.screenshot()
+        # screenshot.save(file_loc + str(i) + '.png')
+        # xs = [obs2[0]]
+        # ys = [obs2[1]]
+        traj = [obs2]
+        for control in control_sequence: 
+            i+=1
+            obs1, reward, done, info = env.step(control)
+            traj.append(obs1['observation'])
+
+        traj_list = []
+        # pdb.set_trace()
+        for i in range(len(roadmap[1])):
+            head = roadmap[1][i][0]
+            tail = roadmap[1][i][1]
+            state = roadmap[0][head]
+            env.set_state(env, state)
+            current_traj = [state]
+            for control in roadmap[1][i][2]:
+                assert np.array(control).shape == (2,)
+                obs1, reward, done, info = env.step(control)
+                current_traj.append(obs1['observation'])
+            current_traj.append(roadmap[0][tail])
+
+            traj_list.append(current_traj)
+
+        plot_roadmap(obs2, traj_list, traj, goal)
+
+        # plot_traj(obs2, traj, goal)
+        # recorder.close()
+        # recorder.enabled = False
+        # pdb.set_trace()
+        env.close()
+
+    #     f.write(str(trial)+","+str(iters)+","+str(maxTime)+","+str(curCost)+'\n')
+    # f.close()
