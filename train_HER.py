@@ -20,6 +20,7 @@ from pomp.example_problems.robotics.fetch.slide import FetchSlideEnv
 from pomp.example_problems.robotics.fetch.pick_and_place import FetchPickAndPlaceEnv
 
 from HER_mod.rl_modules.velocity_env import MultiGoalEnvironment, CarEnvironment
+from HER_mod.rl_modules.car_env import *
 import pickle
 
 from gym.wrappers.time_limit import TimeLimit
@@ -44,9 +45,15 @@ def launch(args):
     # create the ddpg_agent
     if args.env_name == "MultiGoalEnvironment":
         env = MultiGoalEnvironment("MultiGoalEnvironment", time=True, vel_goal=False)
+    elif args.env_name == "MultiGoalEnvironmentVelGoal":
+        env = MultiGoalEnvironment("MultiGoalEnvironment", time=True, vel_goal=True)
     elif "Car" in args.env_name:
         env = CarEnvironment("CarEnvironment", time=True, vel_goal=False)
         # env = TimeLimit(CarEnvironment("CarEnvironment", time=True, vel_goal=False), max_episode_steps=50)
+    elif args.env_name == "Asteroids" :
+        env = TimeLimit(RotationEnv(vel_goal=False), max_episode_steps=50)
+    elif args.env_name == "AsteroidsVelGoal" :
+        env = TimeLimit(RotationEnv(vel_goal=True), max_episode_steps=50)
     elif args.env_name == "PendulumGoal":
         env = TimeLimit(PendulumGoalEnv(g=9.8), max_episode_steps=200)
     elif args.env_name == "FetchReach":
@@ -97,22 +104,22 @@ if __name__ == '__main__':
         from HER.rl_modules.tdm_p2p import ddpg_agent
         suffix = "_p2p"
     else: 
-        # from HER.rl_modules.sac_agent import ddpg_agent
+        from HER.rl_modules.sac_agent import ddpg_agent
         # from HER.rl_modules.ddpg_agent import ddpg_agent
         # from HER.rl_modules.ddpg_original import ddpg_agent
         # from HER.rl_modules.tdm_agent import ddpg_agent
-        from HER.rl_modules.tdm_ddpg_agent import ddpg_agent
+        # from HER.rl_modules.tdm_ddpg_agent import ddpg_agent
         suffix = ""
 
     agent = launch(args)
 
-    # with open("saved_models/her_" + args.env_name + suffix + ".pkl", 'wb') as f:
-    #     pickle.dump(agent.actor_network, f)
-    #     print("Saved agent")
+    with open("saved_models/her_" + args.env_name + suffix + ".pkl", 'wb') as f:
+        pickle.dump(agent.actor_network, f)
+        print("Saved agent")
 
-    # value_estimator = StateValueEstimator(agent.actor_network, agent.critic_network, args.gamma)
+    value_estimator = StateValueEstimator(agent.actor_network, agent.critic_network, args.gamma)
 
-    # with open("saved_models/her_" + args.env_name + "_value" + suffix + ".pkl", 'wb') as f:
-    #     pickle.dump(value_estimator, f)
-    #     print("Saved value estimator")
+    with open("saved_models/her_" + args.env_name + "_value" + suffix + ".pkl", 'wb') as f:
+        pickle.dump(value_estimator, f)
+        print("Saved value estimator")
 

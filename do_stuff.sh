@@ -24,24 +24,32 @@
 # python train_distance_function.py --env-name=FetchSlide --epochs=200 --p2p --agent-location=saved_models/her_FetchReach.pkl
 
 
-python main.py GymMomentumShift stable-sparse-rrt gdsst psst pgdsst
-python main.py GymAsteroidsShift stable-sparse-rrt gdsst psst pgdsst
+# python train_HER.py --env-name='Asteroids' --n-epochs=10
+# python train_HER.py --env-name='AsteroidsVelGoal' --n-epochs=50
+python train_HER.py --env-name='MultiGoalEnvironment' --n-epochs=50
+# python train_HER.py --env-name='MultiGoalEnvironmentVelGoal' --n-epochs=50
 
-python main.py FetchReach rl
-python main.py FetchPush  rl
-python main.py FetchPickAndPlace rl
-# python main.py FetchSlide rl
+python main.py GymMomentum rl stable-sparse-rrt psst pgdsst gdsst
+# python main.py GymAsteroids rl stable-sparse-rrt psst pgdsst gdsst
 
-python main.py FetchPush  stable-sparse-rrt pgdsst psst 
-python main.py FetchPickAndPlace stable-sparse-rrt pgdsst psst 
-python main.py FetchPickAndPlace stable-sparse-rrt pgdsst psst 
-python main.py FetchSlide gdsst stable-sparse-rrt pgdsst psst
+# python main.py GymMomentumShift stable-sparse-rrt gdsst psst pgdsst
+# python main.py GymAsteroidsShift stable-sparse-rrt gdsst psst pgdsst
+
+# python main.py FetchReach rl
+# python main.py FetchPush  rl
+# python main.py FetchPickAndPlace rl
+# # python main.py FetchSlide rl
+
+# python main.py FetchPush  stable-sparse-rrt pgdsst psst 
+# python main.py FetchPickAndPlace stable-sparse-rrt pgdsst psst 
+# python main.py FetchPickAndPlace stable-sparse-rrt pgdsst psst 
+# python main.py FetchSlide pgdsst
 
 
-python main.py FetchReach gdsst 
-python main.py FetchPush  gdsst 
-python main.py FetchPickAndPlace gdsst 
-python main.py FetchSlide gdsst 
+# python main.py FetchReach gdsst 
+# python main.py FetchPush  gdsst 
+# python main.py FetchPickAndPlace gdsst 
+# python main.py FetchSlide gdsst 
 
 # python main.py FetchReach psst 
 # python main.py FetchPush  psst 

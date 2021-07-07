@@ -5,8 +5,8 @@ from collections import deque
 import numpy as np
 import matplotlib.pyplot as plt
 import pdb 
-from tspy import TSP
-from tspy.solvers import TwoOpt_solver
+# from tspy import TSP
+# from tspy.solvers import TwoOpt_solver
 from HER_mod.rl_modules.velocity_env import *
 from HER_mod.rl_modules.hyperparams import NUM_GOALS
 

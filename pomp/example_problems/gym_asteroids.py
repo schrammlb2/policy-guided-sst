@@ -58,7 +58,8 @@ def set_state(self, state):
     self.velocity = np.array(state[2:4])
     self.rotation = square_to_radian(np.array(state[-1:]))
 
-agent_loc = "saved_models/her_mod_"
+# agent_loc = "saved_models/her_mod_"
+agent_loc = "saved_models/her_"
 goal_suffix = ".pkl"
 p2p_suffix = "_p2p.pkl"
 
@@ -68,12 +69,13 @@ value_function_infix = "_value"
 mean_GD_steps = 5
 epsilon = 1/(1+mean_GD_steps)
 
-env_name = "Asteroids"
+# env_name = "Asteroids"
+p2p_name = "AsteroidsVelGoal"
 
 class Asteroids: 
-    def __init__(self, shift=False):
+    def __init__(self, shift=False, vel_goal = False):
         # self.env = MultiGoalEnvironment("MultiGoalEnvironment", vel_goal=True, time=True)
-        self.env = RotationEnv(shift=shift)#, vel_goal=False, time=True)
+        self.env = RotationEnv(shift=shift, vel_goal=False)
         observation = self.env.reset()
         setattr(self.env, 'set_state', set_state)
         # goal = [0,0,-.9,-.9]
@@ -84,9 +86,11 @@ class Asteroids:
         self.control_space = GymWrapperGoalConditionedControlSpace(self.env, goal)
 
 
-        pure_rl_agent = DDPGAgentWrapper("saved_models/her_mod_" + env_name + ".pkl", goal_conditioned=True, deterministic=True)
-        agent = DDPGAgentWrapper("saved_models/her_mod_" + env_name + ".pkl", goal_conditioned=True)
-        p2p_agent = DDPGAgentWrapper("saved_models/her_mod_" + env_name + "_p2p.pkl", goal_conditioned=True)
+        env_name = "Asteroids" + ("VelGoal" if vel_goal else "")
+        pure_rl_agent = DDPGAgentWrapper(agent_loc + env_name + goal_suffix, goal_conditioned=True, deterministic=True)
+        agent = DDPGAgentWrapper(agent_loc + env_name + goal_suffix, goal_conditioned=True)
+        # p2p_agent = DDPGAgentWrapper(agent_loc + env_name + p2p_suffix, goal_conditioned=True)
+        p2p_agent = DDPGAgentWrapper(agent_loc + p2p_name + goal_suffix, goal_conditioned=True)
         # def make_control_selector(controlSpace,metric,numSamples):
         #     return RLAgentControlSelector(controlSpace,metric,numSamples, rl_agent = agent, p_goal = .5, p_random=.2, goal=goal)
         
@@ -100,7 +104,8 @@ class Asteroids:
             return rv
 
         # self.control_space.controlSelector = make_control_selector
-        self.control_space.controlSelector = control_selector_maker(.5, .2)
+        # self.control_space.controlSelector = control_selector_maker(.5, .2)
+        self.control_space.controlSelector = control_selector_maker(.5, .5)
         self.control_space.p2pControlSelector = control_selector_maker(0, 0)
         self.control_space.pure_rl_controlSelector = pure_rl_selector
 
@@ -129,7 +134,8 @@ class Asteroids:
         goal_filename = agent_loc + value_function_name + value_function_infix + goal_suffix
         with open(goal_filename, 'rb') as f:
             goal_value = pickle.load(f)
-        p2p_filename = agent_loc + value_function_name + value_function_infix + p2p_suffix
+        # p2p_filename = agent_loc + value_function_name + value_function_infix + p2p_suffix
+        p2p_filename = agent_loc + p2p_name + value_function_infix + goal_suffix
         with open(p2p_filename, 'rb') as f:
             p2p_value = pickle.load(f)
 
@@ -173,6 +179,15 @@ def gym_momentum_test():
 def gymAsteroidsTest():
     # gym_momentum_test()
     p = Asteroids()
+    # objective = TimeObjectiveFunction()
+    objective = TimeLengthObjectiveFunction()
+    return PlanningProblem(p.controlSpace(),p.startState(),p.goalSet(),
+                           objective=objective)
+
+
+def gymAsteroidsVelGoalTest():
+    # gym_momentum_test()
+    p = Asteroids(vel_goal=True)
     # objective = TimeObjectiveFunction()
     objective = TimeLengthObjectiveFunction()
     return PlanningProblem(p.controlSpace(),p.startState(),p.goalSet(),

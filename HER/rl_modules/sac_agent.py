@@ -8,6 +8,7 @@ from HER.mpi_utils.normalizer import normalizer
 from HER.rl_modules.replay_buffer import replay_buffer
 from HER.rl_modules.sac_models import actor, critic, dual_critic
 from HER.her_modules.her import her_sampler
+import pdb
 
 """
 ddpg with HER (MPI-version)

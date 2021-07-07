@@ -20,7 +20,11 @@ class RotationEnv(gym.GoalEnv):
 		self.dt = .2
 		self.acc_speed = 2
 		self.rot_speed = 7
-		self.drag = 1
+
+		# self.acc_speed = 2
+		# self.rot_speed = 2
+
+		self.drag = 0
 
 		# observation = [x_pos, y_pos, x_vel, y_vel, rotation]
 		# action = [acceleration, turn]
@@ -31,6 +35,7 @@ class RotationEnv(gym.GoalEnv):
 			self.goal_dim = 5
 		else: 
 			self.goal_dim = 2
+
 
 		self.action_space 	=spaces.Box(-1, 1, shape=(self.action_dim,), dtype='float32')
 		self.observation_space = spaces.Dict(dict(

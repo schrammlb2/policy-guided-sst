@@ -375,6 +375,7 @@ def record_manual(problem,numTrials,maxTime,filename, plannerType, problemName, 
 
         i=0
         file_loc = './demos/' + problemName + '_' + plannerType + '/'
+        print(file_loc)
         screenshot = pyautogui.screenshot()
         screenshot.save(file_loc + str(i) + '.png')
 
@@ -384,7 +385,7 @@ def record_manual(problem,numTrials,maxTime,filename, plannerType, problemName, 
             obs1, reward, done, info = env.step(control)
             env.render()
             # pdb.set_trace()
-            # time.sleep(.5)
+            time.sleep(.1)
             screenshot = pyautogui.screenshot()
             screenshot.save(file_loc + str(i) + '.png')
             print(reward)

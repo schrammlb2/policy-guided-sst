@@ -21,7 +21,7 @@ import copy
 import sys
 import os,errno
 
-numTrials = 500
+numTrials = 200
 
 def mkdir_p(path):
     """Quiet path making"""
@@ -69,7 +69,9 @@ all_problems = {#'Kink':geometric.kinkTest(),
                 # 'GymCar':gym_car.carTest(),
                 'GymPendulum':gym_pendulum.gymPendulumTest,
                 'GymMomentum':gym_momentum.gymMomentumTest,
+                'GymMomentumVelGoal':gym_momentum.gymMomentumVelGoalTest,
                 'GymAsteroids':gym_asteroids.gymAsteroidsTest,
+                'GymAsteroidsVelGoal':gym_asteroids.gymAsteroidsVelGoalTest,
                 'GymMomentumShift':gym_momentum.gymMomentumShiftTest,
                 'GymAsteroidsShift':gym_asteroids.gymAsteroidsShiftTest,
                 'FetchReach':fetchrobot.fetchReachTest,
@@ -97,6 +99,7 @@ customParameters = {'Kink':{'maxTime':40,'nextStateSamplingRange':0.15},
                     # 'GymPendulum':{'maxTime':7200},#,'selectionRadius':.03, 'witnessRadius':.01}, 
                     # 'GymMomentum':{'maxTime':30},#'selectionRadius':0.3,'witnessRadius':0.3},
                     'GymMomentum': settings_2d,
+                    'GymMomentumVelGoal': settings_2d,
                     'GymMomentumShift':settings_2d,
                     'GymAsteroids':settings_2d,
                     'GymAsteroidsShift':settings_2d,
@@ -107,7 +110,7 @@ customParameters = {'Kink':{'maxTime':40,'nextStateSamplingRange':0.15},
                     'FetchReach':{'maxTime':60,'witnessRadius':fetchrobotWitnessRadius,'selectionRadius':fetchSelectionRadius},
                     'FetchPush':{'maxTime':150,'witnessRadius':fetchrobotWitnessRadius,'selectionRadius':fetchSelectionRadius},
                     'FetchSlide':{'maxTime':fetch_time,'witnessRadius':fetchrobotWitnessRadius,'selectionRadius':fetchSelectionRadius},
-                    'FetchPickAndPlace':{'maxTime':200,'witnessRadius':fetchrobotWitnessRadius,'selectionRadius':fetchSelectionRadius},
+                    'FetchPickAndPlace':{'maxTime':100,'witnessRadius':fetchrobotWitnessRadius,'selectionRadius':fetchSelectionRadius},
                     'Flappy':{'maxTime':120,'edgeCheckTolerance':4,'selectionRadius':70,'witnessRadius':35},
                     'DoubleIntegrator':{'maxTime':60,'selectionRadius':0.3,'witnessRadius':0.3},
                     'Dubins':{'selectionRadius':0.25,'witnessRadius':0.2},

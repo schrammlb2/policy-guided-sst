@@ -58,12 +58,16 @@ def launch(args, time=True, hooks=[], vel_goal=False, seed=True):
     #     env = gym.make(args.env_name)
 
     if args.env_name == "MultiGoalEnvironment":
-        env = MultiGoalEnvironment("MultiGoalEnvironment", time=True, vel_goal=vel_goal)
+        env = MultiGoalEnvironment("MultiGoalEnvironment", time=True, vel_goal=False)
+    elif args.env_name == "MultiGoalEnvironmentVelGoal":
+        env = MultiGoalEnvironment("MultiGoalEnvironment", time=True, vel_goal=True)
     elif "Car" in args.env_name:
         env = CarEnvironment("CarEnvironment", time=True, vel_goal=False)
         # env = TimeLimit(CarEnvironment("CarEnvironment", time=True, vel_goal=False), max_episode_steps=50)
     elif "Asteroids" in args.env_name:
-        env = TimeLimit(RotationEnv(vel_goal=vel_goal), max_episode_steps=50)
+        env = TimeLimit(RotationEnv(vel_goal=False), max_episode_steps=50)
+    elif "AsteroidsVelGoal" in args.env_name:
+        env = TimeLimit(RotationEnv(vel_goal=True), max_episode_steps=50)
     elif args.env_name == "PendulumGoal":
         env = TimeLimit(PendulumGoalEnv(g=9.8), max_episode_steps=200)
     elif "FetchReach" in args.env_name:
@@ -84,13 +88,13 @@ def launch(args, time=True, hooks=[], vel_goal=False, seed=True):
     # env = PlanningEnvGymWrapper(problem)
     # env = KinomaticGymWrapper(problem)
     # set random seeds for reproduce
-    if seed: 
-        env.seed(args.seed + MPI.COMM_WORLD.Get_rank())
-        random.seed(args.seed + MPI.COMM_WORLD.Get_rank())
-        np.random.seed(args.seed + MPI.COMM_WORLD.Get_rank())
-        torch.manual_seed(args.seed + MPI.COMM_WORLD.Get_rank())
-        if args.cuda:
-            torch.cuda.manual_seed(args.seed + MPI.COMM_WORLD.Get_rank())
+    # if seed: 
+    env.seed(args.seed + MPI.COMM_WORLD.Get_rank())
+    random.seed(args.seed + MPI.COMM_WORLD.Get_rank())
+    np.random.seed(args.seed + MPI.COMM_WORLD.Get_rank())
+    torch.manual_seed(args.seed + MPI.COMM_WORLD.Get_rank())
+    if args.cuda:
+        torch.cuda.manual_seed(args.seed + MPI.COMM_WORLD.Get_rank())
     # get the environment parameters
     env_params = get_env_params(env)
     # return

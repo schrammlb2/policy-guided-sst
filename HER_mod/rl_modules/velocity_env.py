@@ -105,8 +105,8 @@ class MultiGoalEnvironment:
 		self.step_size = self.epsilon/2
 		# self.mass = 20#*self.step_size
 		# self.vel_error_margin = 20
-		# self.mass = .5
-		self.mass = .3
+		self.mass = 3
+		# self.mass = .3
 		# self.vel_error_margin = 20
 		self.vel_error_margin = .7
 		self.v_traction = 2
