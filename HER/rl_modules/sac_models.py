@@ -163,6 +163,159 @@ class dual_critic(nn.Module):
         return self.q1(x, actions), self.q2(x, actions)
 
 
+
+
+class value_prior_actor(nn.Module):
+    def __init__(self, env_params):
+        super(value_prior_actor, self).__init__()
+        self.goal_dim = env_params['goal']
+        self.max_action = env_params['action_max']
+        # self.norm1 = nn.LayerNorm(env_params['obs'] + 2*env_params['goal'])
+        self.norm1 = nn.LayerNorm(env_params['obs'] + env_params['goal'])
+        # self.norm1 = nn.LayerNorm(256)
+        self.norm2 = nn.LayerNorm(256)
+        self.norm3 = nn.LayerNorm(256)
+        # self.fc1 = nn.Linear(env_params['obs'] + 2*env_params['goal'], 256)
+        self.fc1 = nn.Linear(env_params['obs'] + env_params['goal'], 256)
+        self.fc2 = nn.Linear(256, 256)
+        self.fc3 = nn.Linear(256, 256)
+        self.mu_layer = nn.Linear(256, env_params['action'])
+        # self.mu_layer.weight.data.fill_(0)
+        # self.mu_layer.bias.data.fill_(0)
+        self.log_std_layer = nn.Linear(256, env_params['action'])
+        # self.log_std_layer.weight.data.fill_(0)
+        # self.log_std_layer.bias.data.fill_(-1.)
+
+    def forward(self, x, with_logprob = False, deterministic = False, forced_exploration=1):
+        # with_logprob = False
+        x = x[...,:-self.goal_dim]
+        x = self.norm1(x)
+        x = torch.clip(x, -clip_max, clip_max)
+        x = F.relu(self.fc1(x))
+        x = self.norm2(x)
+        x = F.relu(self.fc2(x))
+        x = self.norm3(x)
+        net_out = F.relu(self.fc3(x))
+
+
+        mu = self.mu_layer(net_out)#/100
+        log_std = self.log_std_layer(net_out)-1#/100 -1.
+        log_std = torch.clamp(log_std, LOG_STD_MIN, LOG_STD_MAX)
+        std = torch.exp(log_std)*forced_exploration
+
+        # Pre-squash distribution and sample
+        pi_distribution = Normal(mu, std)
+        if deterministic:
+            # Only used for evaluating policy at test time.
+            pi_action = mu
+        else:
+            pi_action = pi_distribution.rsample()
+
+        if with_logprob:
+            # Compute logprob from Gaussian, and then apply correction for Tanh squashing.
+            # NOTE: The correction formula is a little bit magic. To get an understanding 
+            # of where it comes from, check out the original SAC paper (arXiv 1801.01290) 
+            # and look in appendix C. This is a more numerically-stable equivalent to Eq 21.
+            # Try deriving it yourself as a (very difficult) exercise. :)
+            logp_pi = pi_distribution.log_prob(pi_action).sum(axis=-1)
+            logp_pi -= (2*(np.log(2) - pi_action - F.softplus(-2*pi_action))).sum(axis=1)
+        else:
+            logp_pi = None
+
+        pi_action = torch.tanh(pi_action)
+        pi_action = self.max_action * pi_action
+
+        if with_logprob: 
+            return pi_action, logp_pi
+        else: 
+            return pi_action
+        # return actions
+
+    def set_normalizers(self, o, g): 
+        self.o_norm = o
+        self.g_norm = g
+
+    # def normed_forward(self, obs, g, deterministic=False): 
+    #     obs_norm = self.o_norm.normalize(obs)
+    #     g_norm = self.g_norm.normalize(g)
+    #     # concatenate the stuffs
+    #     inputs = np.concatenate([obs_norm, g_norm])
+    #     inputs = torch.tensor(inputs, dtype=torch.float32).unsqueeze(0)
+    #     return self.forward(inputs, deterministic=deterministic)
+
+    def _get_norms(self, obs, g):
+        obs_norm = self.o_norm.normalize(obs)
+        g_norm = self.g_norm.normalize(g)
+        return obs_norm, g_norm
+
+    def _get_denorms(self, obs, g):
+        obs_denorm = self.o_norm.denormalize(obs)
+        g_denorm = self.g_norm.denormalize(g)
+        return obs_denorm, g_denorm
+
+    def normed_forward(self, obs, g, ag, deterministic=False): 
+        obs_norm, g_norm = self._get_norms(torch.tensor(obs, dtype=torch.float32), torch.tensor(g, dtype=torch.float32))
+        ag_norm = self.g_norm.normalize(torch.tensor(ag, dtype=torch.float32))
+        # concatenate the stuffs
+        inputs = torch.cat([obs_norm, g_norm, ag_norm])
+        inputs = inputs.unsqueeze(0)
+        return self.forward(inputs, deterministic=deterministic, forced_exploration=1)
+
+
+
+class value_prior_critic(nn.Module):
+    def __init__(self, env_params):
+        super(value_prior_critic, self).__init__()
+        self.goal_dim = env_params['goal']
+        self.max_action = env_params['action_max']
+        self.norm2 = nn.LayerNorm(256)
+        self.norm3 = nn.LayerNorm(256)
+        self.norm1 = nn.LayerNorm(env_params['obs'] + 2*env_params['goal'] + env_params['action'])
+        self.fc1 = nn.Linear(env_params['obs'] + 2*env_params['goal'] + env_params['action'], 256)
+        # self.norm1 = nn.LayerNorm(env_params['obs'] + env_params['goal'] + env_params['action'])
+        # self.fc1 = nn.Linear(env_params['obs'] + env_params['goal'] + env_params['action'], 256)
+        self.fc2 = nn.Linear(256, 256)
+        self.fc3 = nn.Linear(256, 256)
+        self.mult_out = nn.Linear(256, 1)
+        self.add_out = nn.Linear(256, 1)
+
+    def forward(self, x, actions):
+        g = x[...,-self.goal_dim:]
+        ag = x[...,-2*self.goal_dim:-self.goal_dim]
+        dist = ((g-ag)**2).sum(dim=-1)**.5*10
+        x = torch.cat([x, actions / self.max_action], dim=1)
+        x = self.norm1(x)
+        x = torch.clip(x, -clip_max, clip_max)
+        x = F.relu(self.fc1(x))
+        x = self.norm2(x)
+        x = F.relu(self.fc2(x))
+        x = self.norm3(x)
+        x = F.relu(self.fc3(x))
+        # # q_value = self.q_out(x)
+        # q_value = -dist*F.relu(self.mult_out(x)) + self.add_out(x)
+        gamma = .98
+        q_value = 1/gamma*(gamma**(F.relu(dist*self.mult_out(x)))-1) + self.add_out(x)
+
+        return q_value
+
+class dual_value_prior_critic(nn.Module):
+    def __init__(self, env_params):
+        super(dual_value_prior_critic, self).__init__()
+        self.q1 = value_prior_critic(env_params)
+        self.q2 = value_prior_critic(env_params)
+
+    def forward(self, x, actions):
+        return torch.min(self.q1(x, actions), self.q2(x, actions))
+
+    def dual(self, x, actions):
+        return self.q1(x, actions), self.q2(x, actions)
+
+
+
+
+
+
+
 class tdm_critic(nn.Module):
     def __init__(self, env_params):
         super(tdm_critic, self).__init__()

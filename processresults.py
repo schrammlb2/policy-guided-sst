@@ -17,14 +17,11 @@ if len(sys.argv) < 2:
 
 trialvarname = 'trial'
 timevarname = 'plan time'
-<<<<<<< HEAD
 ignorevars = [trialvarname,timevarname,'plan iters','numComponents','numIters','gridMin','gridMax']
 timevarname = 'plan iters'
 ignorevars = [trialvarname,timevarname,'plan time','numComponents','numIters','gridMin','gridMax']
-=======
 timevarname = 'plan iters'
 ignorevars = [trialvarname,timevarname,'numComponents','numIters','gridMin','gridMax']#,'plan iters']
->>>>>>> fb643279dc406b15813241002448ed4428e962b2
 #only output means for the following
 meanvars = ['configCheckTime','knnTime','connectTime','lazyTime','lazyPathCheckTime','shortestPathsTime','numEdgeChecks','numEdgesPrechecked','numMilestones']
 

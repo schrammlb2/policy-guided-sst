@@ -2,25 +2,36 @@ import numpy as np
 import gym
 import os, sys
 from mpi4py import MPI
+import pdb
 from HER.arguments import get_args
 # from HER.rl_modules.ddpg_agent import ddpg_agent
 # from HER.rl_modules.model_normed_ddpg_agent import ddpg_agent
 # from HER.rl_modules.sac_agent import ddpg_agent
 # from HER.rl_modules.p2p_agent import ddpg_agent
 from HER.rl_modules.sac_models import StateValueEstimator
+
 import random
 import torch
+
 from pomp.planners.plantogym import PlanningEnvGymWrapper, KinomaticGymWrapper
+
 from pomp.example_problems.doubleintegrator import doubleIntegratorTest
 from pomp.example_problems.pendulum import pendulumTest
 from pomp.example_problems.gym_pendulum_baseenv import PendulumGoalEnv
+
 from pomp.example_problems.robotics.fetch.reach import FetchReachEnv
 from pomp.example_problems.robotics.fetch.push import FetchPushEnv
 from pomp.example_problems.robotics.fetch.slide import FetchSlideEnv
 from pomp.example_problems.robotics.fetch.pick_and_place import FetchPickAndPlaceEnv
 
+from pomp.example_problems.robotics.hand.reach import HandReachEnv
+
+# from gym_extensions.continuous.gym_navigation_2d.env_generator import Environment, EnvironmentCollection, Obstacle
+from gym_extensions.continuous.gym_navigation_2d.env_generator import Environment#, EnvironmentCollection, Obstacle
+
 from HER_mod.rl_modules.velocity_env import MultiGoalEnvironment, CarEnvironment
 from HER_mod.rl_modules.car_env import *
+
 import pickle
 
 from gym.wrappers.time_limit import TimeLimit
@@ -64,6 +75,8 @@ def launch(args):
         env = TimeLimit(FetchSlideEnv(), max_episode_steps=50)
     elif args.env_name == "FetchPickAndPlace":
         env = TimeLimit(FetchPickAndPlaceEnv(), max_episode_steps=50)
+    elif args.env_name == "HandReach":
+        env = TimeLimit(HandReachEnv(), max_episode_steps=10)
     else:
         env = gym.make(args.env_name)
 
@@ -75,7 +88,10 @@ def launch(args):
     # env = KinomaticGymWrapper(problem)
     # env = gym.make(args.env_name)
     # set random seeds for reproduce
-    env.seed(args.seed + MPI.COMM_WORLD.Get_rank())
+    try: 
+        env.seed(args.seed + MPI.COMM_WORLD.Get_rank())
+    except: 
+        pass
     random.seed(args.seed + MPI.COMM_WORLD.Get_rank())
     np.random.seed(args.seed + MPI.COMM_WORLD.Get_rank())
     torch.manual_seed(args.seed + MPI.COMM_WORLD.Get_rank())
@@ -105,6 +121,7 @@ if __name__ == '__main__':
         suffix = "_p2p"
     else: 
         from HER.rl_modules.sac_agent import ddpg_agent
+        # from HER.rl_modules.value_prior_agent import ddpg_agent
         # from HER.rl_modules.ddpg_agent import ddpg_agent
         # from HER.rl_modules.ddpg_original import ddpg_agent
         # from HER.rl_modules.tdm_agent import ddpg_agent

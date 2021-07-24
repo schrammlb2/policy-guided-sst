@@ -8,6 +8,7 @@ import itertools
 # from rl_modules.multi_goal_env2 import *
 from HER_mod.arguments import get_args
 from HER_mod.rl_modules.ddpg_agent import ddpg_agent
+# from HER_mod.rl_modules.value_prior_agent import ddpg_agent
 # from HER.rl_modules.her_ddpg_agent import her_ddpg_agent
 from HER_mod.rl_modules.velocity_env import *
 from HER_mod.rl_modules.car_env import *
@@ -20,11 +21,14 @@ from HER_mod.rl_modules.get_path_costs import get_path_costs, get_random_search_
 
 from pomp.planners.plantogym import PlanningEnvGymWrapper, KinomaticGymWrapper
 from pomp.example_problems.doubleintegrator import doubleIntegratorTest
+from pomp.example_problems.dubins import dubinsCarTest
 from pomp.example_problems.pendulum import pendulumTest
 from pomp.example_problems.robotics.fetch.reach import FetchReachEnv
 from pomp.example_problems.robotics.fetch.push import FetchPushEnv
 from pomp.example_problems.robotics.fetch.slide import FetchSlideEnv
 from pomp.example_problems.robotics.fetch.pick_and_place import FetchPickAndPlaceEnv
+
+from gym_extensions.continuous.gym_navigation_2d.env_generator import Environment#, EnvironmentCollection, Obstacle
 
 from pomp.example_problems.gym_pendulum_baseenv import PendulumGoalEnv
 from gym.wrappers.time_limit import TimeLimit
@@ -61,7 +65,7 @@ def launch(args, time=True, hooks=[], vel_goal=False, seed=True):
         env = MultiGoalEnvironment("MultiGoalEnvironment", time=True, vel_goal=False)
     elif args.env_name == "MultiGoalEnvironmentVelGoal":
         env = MultiGoalEnvironment("MultiGoalEnvironment", time=True, vel_goal=True)
-    elif "Car" in args.env_name:
+    elif args.env_name == "Car":
         env = CarEnvironment("CarEnvironment", time=True, vel_goal=False)
         # env = TimeLimit(CarEnvironment("CarEnvironment", time=True, vel_goal=False), max_episode_steps=50)
     elif "Asteroids" in args.env_name:
@@ -89,7 +93,10 @@ def launch(args, time=True, hooks=[], vel_goal=False, seed=True):
     # env = KinomaticGymWrapper(problem)
     # set random seeds for reproduce
     # if seed: 
-    env.seed(args.seed + MPI.COMM_WORLD.Get_rank())
+    try: 
+        env.seed(args.seed + MPI.COMM_WORLD.Get_rank())
+    except: 
+        pass
     random.seed(args.seed + MPI.COMM_WORLD.Get_rank())
     np.random.seed(args.seed + MPI.COMM_WORLD.Get_rank())
     torch.manual_seed(args.seed + MPI.COMM_WORLD.Get_rank())
@@ -104,6 +111,7 @@ def launch(args, time=True, hooks=[], vel_goal=False, seed=True):
     #     ddpg_trainer = ddpg_agent(args, env, env_params, vel_goal=vel_goal)
     # else: 
     #     ddpg_trainer = her_ddpg_agent(args, env, env_params)
+    # pdb.set_trace()
     ddpg_trainer.learn(hooks)
     # [hook.finish() for hook in hooks]
     return ddpg_trainer, [hook.finish() for hook in hooks]
@@ -189,3 +197,12 @@ if __name__ == '__main__':
     # with open("saved_models/her_mod_" + args.env_name + "_value" + suffix + ".pkl", 'wb') as f:
     #     pickle.dump(value_estimator, f)
     #     print("Saved value estimator")
+    with open("saved_models/her_" + args.env_name + suffix + ".pkl", 'wb') as f:
+        pickle.dump(agent.actor_network, f)
+        print("Saved agent")
+
+    value_estimator = StateValueEstimator(agent.actor_network, agent.critic.critic_1, args.gamma)
+
+    with open("saved_models/her_" + args.env_name + "_value" + suffix + ".pkl", 'wb') as f:
+        pickle.dump(value_estimator, f)
+        print("Saved value estimator")

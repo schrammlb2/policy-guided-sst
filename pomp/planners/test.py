@@ -368,11 +368,13 @@ def record_manual(problem,numTrials,maxTime,filename, plannerType, problemName, 
             for control in mini_control_seq: 
                 control_sequence.append(np.array(control))
 
-        import pdb
         obs2 = initial_state.tolist()
         epsilon = .01
         reward = controlSpace.goal_contains(obs2)
-        env.render()
+        try: 
+            env.render(path=path[0])
+        except: 
+            env._render(mode='human',path=path[0])
         # pdb.set_trace()
 
         i=0
@@ -385,7 +387,10 @@ def record_manual(problem,numTrials,maxTime,filename, plannerType, problemName, 
             i+=1
             # time.sleep(.5)
             obs1, reward, done, info = env.step(control)
-            env.render()
+            try: 
+                env.render(path=path[0])
+            except: 
+                env._render(mode='human',path=path[0])
             # pdb.set_trace()
             time.sleep(.1)
             screenshot = pyautogui.screenshot()
@@ -500,3 +505,100 @@ def path_visualization_2D(problem,numTrials,maxTime,filename, plannerType, probl
 
     #     f.write(str(trial)+","+str(iters)+","+str(maxTime)+","+str(curCost)+'\n')
     # f.close()
+
+
+
+
+def path_visualization_obstacle(problem,numTrials,maxTime,filename, plannerType, problemName, **plannerParams):    
+    print("Testing planner for %d trials, %f seconds"%(numTrials,maxTime))
+    print("Saving to",filename)
+    f = open(filename,'w')
+    f.write("trial,plan iters,plan time,best cost\n")
+    for trial in range(numTrials):
+        print()
+        print("Trial",trial+1)# 
+        problem_instance = problem()
+        planner = problem_instance.planner(plannerType,**plannerParams)
+        planner.reset()
+        curCost = float('inf')
+        t0 = time.time()
+        numupdates = 0
+        iters = 0
+        hadException = False
+        while time.time()-t0 < maxTime:
+            planner.planMore(10)
+            iters += 10
+            if planner.bestPathCost != None and planner.bestPathCost != curCost:
+                numupdates += 1
+                curCost = planner.bestPathCost
+                t1 = time.time()
+                f.write(str(trial)+","+str(iters)+","+str(t1-t0)+","+str(curCost)+'\n')
+        if hasattr(planner,'stats'):
+            print
+            temp = Profiler()
+            temp.items["Stats:"] = planner.stats
+            temp.pretty_print()
+        print()
+        print("Final cost:",curCost)
+        print()
+
+        controlSpace = problem_instance.controlSpace
+
+
+        env = controlSpace.env
+        goal = env.goal
+        witness_set = [elem[0] for elem in planner.witnessSet]
+
+        path = planner.getPath()
+        initial_state = np.array(path[0][0])
+        if path != None:
+            witness_set = path[0]
+
+        try: 
+            env.render(path=witness_set)
+        except: 
+            env._render(mode='human',path=witness_set)
+        time.sleep(30)
+        
+
+        # control_sequence = []
+        # for mini_control_seq in path[1]:
+        #     for control in mini_control_seq: 
+        #         control_sequence.append(np.array(control))
+
+        # obs2 = initial_state.tolist()
+        # epsilon = .01
+        # reward = controlSpace.goal_contains(obs2)
+        # try: 
+        #     env.render(path=path[0])
+        # except: 
+        #     env._render(mode='human',path=path[0])
+        # pdb.set_trace()
+
+        i=0
+        file_loc = './demos/' + problemName + '_' + plannerType + '/'
+        print(file_loc)
+        screenshot = pyautogui.screenshot()
+        screenshot.save(file_loc + str(i) + '.png')
+
+        for control in control_sequence: 
+            i+=1
+            # time.sleep(.5)
+            obs1, reward, done, info = env.step(control)
+            try: 
+                env.render(path=path[0])
+            except: 
+                env._render(mode='human',path=path[0])
+            # pdb.set_trace()
+            time.sleep(.1)
+            screenshot = pyautogui.screenshot()
+            screenshot.save(file_loc + str(i) + '.png')
+            print(reward)
+
+        # recorder.close()
+        # recorder.enabled = False
+        pdb.set_trace()
+        env.close()
+
+        f.write(str(trial)+","+str(iters)+","+str(maxTime)+","+str(curCost)+'\n')
+    f.close()

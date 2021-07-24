@@ -75,12 +75,12 @@ class Momentum:
         self.env = MultiGoalEnvironment("MultiGoalEnvironment", vel_goal=vel_goal, time=True, shift=shift)
         observation = self.env.reset()
         setattr(self.env, 'set_state', set_state)
-        self.start_state = [-.95, -.95, 0., 0.0]
-        goal = [0,0]#,-.9,-.9]
-        self.env.goal = np.array(goal)
-        self.env.set_state(self.env, self.start_state)
-        # goal = observation['desired_goal'].tolist()
-        # self.start_state = observation['observation'].tolist()
+        # self.start_state = [-.95, -.95, 0., 0.0]
+        # goal = [0,0]#,-.9,-.9]
+        # self.env.goal = np.array(goal)
+        # self.env.set_state(self.env, self.start_state)
+        goal = observation['desired_goal'].tolist()
+        self.start_state = observation['observation'].tolist()
         self.goal = goal
 
         self.control_space = GymWrapperGoalConditionedControlSpace(self.env, goal)
@@ -103,8 +103,10 @@ class Momentum:
             return rv
 
         # self.control_space.controlSelector = make_control_selector
-        # self.control_space.controlSelector = control_selector_maker(.5, .2)
-        self.control_space.controlSelector = control_selector_maker(.5, .5)
+        self.control_space.controlSelector = control_selector_maker(.5, .1)
+        # self.control_space.controlSelector = control_selector_maker(.2, .5)
+        # self.control_space.controlSelector = control_selector_maker(.5, .5)
+        # self.control_space.controlSelector = control_selector_maker(.0, .5)
         self.control_space.p2pControlSelector = control_selector_maker(0, 0)
         self.control_space.pure_rl_controlSelector = pure_rl_selector
 

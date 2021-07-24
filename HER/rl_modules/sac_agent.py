@@ -190,18 +190,22 @@ class ddpg_agent:
         # sample the episodes
         transitions = self.buffer.sample(self.args.batch_size)
         # pre-process the observation and goal
-        o, o_next, g = transitions['obs'], transitions['obs_next'], transitions['g']
+        o, o_next, g, sampled_g = transitions['obs'], transitions['obs_next'], transitions['g'], transitions['sampled_g']
         transitions['obs'], transitions['g'] = self._preproc_og(o, g)
+        _, transitions['sampled_g'] = self._preproc_og(o, sampled_g)
         transitions['obs_next'], transitions['g_next'] = self._preproc_og(o_next, g)
         # start to do the update
         obs_norm = self.o_norm.normalize(transitions['obs'])
         g_norm = self.g_norm.normalize(transitions['g'])
+        sampled_g_norm = self.g_norm.normalize(transitions['sampled_g'])
         inputs_norm = np.concatenate([obs_norm, g_norm], axis=1)
         obs_next_norm = self.o_norm.normalize(transitions['obs_next'])
         g_next_norm = self.g_norm.normalize(transitions['g_next'])
         inputs_next_norm = np.concatenate([obs_next_norm, g_next_norm], axis=1)
+        inputs_goal_norm = np.concatenate([obs_norm, sampled_g_norm], axis=1)
         # transfer them into the tensor
         inputs_norm_tensor = torch.tensor(inputs_norm, dtype=torch.float32)
+        inputs_goal_tensor = torch.tensor(inputs_goal_norm, dtype=torch.float32)
         inputs_next_norm_tensor = torch.tensor(inputs_next_norm, dtype=torch.float32)
         actions_tensor = torch.tensor(transitions['actions'], dtype=torch.float32)
         r_tensor = torch.tensor(transitions['r'], dtype=torch.float32) 
@@ -231,6 +235,11 @@ class ddpg_agent:
         actions_real, log_prob = self.actor_network(inputs_norm_tensor, with_logprob = True)
         actor_loss = -self.critic_network(inputs_norm_tensor, actions_real).mean() + self.args.entropy_regularization*log_prob.mean()
         actor_loss += self.args.action_l2 * (actions_real / self.env_params['action_max']).pow(2).mean()
+
+        # actions_ag, log_prob = self.actor_network(inputs_goal_tensor, with_logprob = True)
+        # l2_scale = .15
+        # actor_loss += l2_scale*((actions_ag-actions_tensor)**2).mean()
+
         # start to update the network
         self.actor_optim.zero_grad()
         actor_loss.backward()

@@ -129,7 +129,8 @@ class FetchRobot:
                 return rv
     
 
-            self.control_space.controlSelector = control_selector_maker(p_goal, 1-p_goal)
+            # self.control_space.controlSelector = control_selector_maker(p_goal, 1-p_goal)
+            self.control_space.controlSelector = control_selector_maker(p_goal, p_random)
             self.control_space.p2pControlSelector = control_selector_maker(0, 0)
             self.control_space.prlcontrolSelector = control_selector_maker(p_goal, p_random)
             self.control_space.pure_rl_controlSelector = pure_rl_selector#control_selector_maker(1, 0)

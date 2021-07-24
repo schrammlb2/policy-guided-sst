@@ -1,0 +1,22 @@
+progress report
+	AutoRL 
+		Code not available online, so can't do direct comparison on same environments
+
+	2D environments
+		very narrow improvements under certain circumstances
+			Full-state agent trained for much, much longer than goal agent
+
+		Mixture of goal, state, and random
+			No improvement
+
+		Mixture of goal and state
+			very narrow improvement? double check
+
+		Mixture of state and random 
+			narrow improvement
+
+	Other 2D environments
+		https://breakend.github.io/gym-extensions/2d_navigation_envs.html
+		https://github.com/Breakend/gym-extensions
+
+	Half of the Unbiased HER paper got scooped 

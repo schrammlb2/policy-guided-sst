@@ -13,6 +13,8 @@ from HER_mod.her_modules.her import her_sampler
 
 from HER_mod.rl_modules.replay_buffer import replay_buffer
 from HER_mod.rl_modules.models import actor, critic
+# from HER_mod.rl_modules.models import value_prior_actor as actor
+# from HER_mod.rl_modules.models import value_prior_critic as critic
 # from HER.rl_modules.sac_models import actor, critic
 from HER_mod.rl_modules.value_map import *
 from HER_mod.rl_modules.velocity_env import *

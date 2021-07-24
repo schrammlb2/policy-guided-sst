@@ -23,59 +23,13 @@
 # python collect_distance_data_p2p.py --env-name=FetchSlide --episodes=10000 --agent-location=saved_models/her_FetchReach_p2p.pkl
 # python train_distance_function.py --env-name=FetchSlide --epochs=200 --p2p --agent-location=saved_models/her_FetchReach.pkl
 
+# mpirun -np 6 python -u train_HER_mod.py --env-name='HandReach-v0' --n-epochs=50
+# mpirun -np 6 python -u train_HER.py --env-name='HandManipulateBlock-v0' --n-epochs=100
+# mpirun -np 6 python -u train_HER.py --env-name='HandManipulateEgg-v0' --n-epochs=100
+# mpirun -np 6 python -u train_HER.py --env-name='HandManipulatePen-v0' --n-epochs=100
 
-<<<<<<< HEAD
-# python train_HER.py --env-name='Asteroids' --n-epochs=10
-# python train_HER.py --env-name='AsteroidsVelGoal' --n-epochs=50
-python train_HER.py --env-name='MultiGoalEnvironment' --n-epochs=50
-# python train_HER.py --env-name='MultiGoalEnvironmentVelGoal' --n-epochs=50
+# mpirun -np 6 python -u train_HER_mod.py --env-name='State-Based-Navigation-2d-Map4-Goal0-v0' --n-epochs=10 --gamma=.995
+# mpirun -np 6 python -u train_HER_mod.py --env-name='Limited-Range-Based-Navigation-2d-Map4-Goal0-v0' --n-epochs=4 --gamma=.995
+mpirun -np 6 python -u train_HER.py --env-name='Limited-Range-Based-Navigation-2d-Map4-Goal0-v0' --n-epochs=40 --gamma=.995
 
-python main.py GymMomentum rl stable-sparse-rrt psst pgdsst gdsst
-# python main.py GymAsteroids rl stable-sparse-rrt psst pgdsst gdsst
-
-# python main.py GymMomentumShift stable-sparse-rrt gdsst psst pgdsst
-# python main.py GymAsteroidsShift stable-sparse-rrt gdsst psst pgdsst
-=======
-# python main.py GymMomentum stable-sparse-rrt gdsst psst pgdsst
-# python main.py GymAsteroids stable-sparse-rrt gdsst psst pgdsst
-
-# python main.py GymMomentumShift stable-sparse-rrt gdsst psst pgdsst
-# python main.py GymAsteroidsShift stable-sparse-rrt gdsst psst pgdsst
-
-# python main.py FetchReach rl
-# python main.py FetchPush  rl
-# python main.py FetchPickAndPlace rl
-# python main.py FetchSlide rl
-
-# python main.py FetchPush psst 
-# python main.py FetchPickAndPlace stable-sparse-rrt pgdsst psst 
-# python main.py FetchReach stable-sparse-rrt pgdsst psst 
-python main.py FetchSlide  pgdsst
->>>>>>> fb643279dc406b15813241002448ed4428e962b2
-
-# python main.py FetchReach rl
-# python main.py FetchPush  rl
-# python main.py FetchPickAndPlace rl
-# # python main.py FetchSlide rl
-
-# python main.py FetchPush  stable-sparse-rrt pgdsst psst 
-# python main.py FetchPickAndPlace stable-sparse-rrt pgdsst psst 
-# python main.py FetchPickAndPlace stable-sparse-rrt pgdsst psst 
-# python main.py FetchSlide pgdsst
-
-
-# python main.py FetchReach gdsst 
-# python main.py FetchPush  gdsst 
-# python main.py FetchPickAndPlace gdsst 
-# python main.py FetchSlide gdsst 
-
-# python main.py FetchReach psst 
-# python main.py FetchPush  psst 
-# python main.py FetchPickAndPlace psst 
-# python main.py FetchSlide psst
-
-# python main.py GymMomentumShift rl stable-sparse-rrt gdsst psst pgdsst
-# python main.py GymAsteroidsShift rl stable-sparse-rrt gdsst psst pgdsst
-
-# python main.py GymMomentumShift gdsst pgdsst
-# python main.py GymAsteroidsShift gdsst pgdsst
+# python main.py GymObstacle2D stable-sparse-rrt psst 

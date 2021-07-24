@@ -29,6 +29,7 @@ labelmap = {"lazy_rrgstar":"Lazy-RRG*",
             "rrtstar_subopt_0.1":"LBT-RRT*(0.1)",
             "rrtstar_subopt_0.2":"LBT-RRT*(0.2)",
             "policy_guided_gradient_descent_sst": "PSST (proposed)",
+            "policy_guided_sst": "PSST without GD Sampling",
             "stable_sparse_rrt": "Stable Sparse RRT (SST)",
             "rl": "RL (SAC + HER)"
 }
@@ -47,7 +48,7 @@ ignored_labels = ['policy_guided_sst', 'gradient_descent_sst']
 # ignored_labels = ['gradient_descent_sst', 'stable_sparse_rrt', 'rl']
 # labelmap['policy_guided_gradient_descent_sst'] = 'PSST with gradient descent'
 # labelmap['policy_guided_sst'] = 'PSST without gradient descent'
-# ignored_labels = []
+ignored_labels = ['gradient_descent_sst']
 
 
 
@@ -136,8 +137,8 @@ with open(sys.argv[1],'r') as f:
     #     label not in ignored_labels and 
     #     items[label][-1][0] is not None)]
     # maximum_x = max(x_list)
-    # forced_max = 80#250
-    forced_max = float('inf')
+    forced_max = 1000#250
+    # forced_max = float('inf')
     for n,label in enumerate(labelorder):
         if label not in items: continue
         if label in ignored_labels: continue
@@ -181,9 +182,9 @@ with open(sys.argv[1],'r') as f:
     	env_name = env_name[3:]
     # plt.title("FetchReach -- " + titlemap[item])
 
-    # plt.title( env_name + " -- " + titlemap[item])
+    plt.title( env_name + " -- " + titlemap[item])
     # plt.title("Asteroids w/ Distribution Shift -- " + titlemap[item])
-    plt.title("Asteroids -- " + titlemap[item])
+    # plt.title("Asteroids -- " + titlemap[item])
     # plt.title("FetchReach -- Success rate")
     # plt.title("Asteroids w/ Distribution Shift -- Cost")
     plt.legend();

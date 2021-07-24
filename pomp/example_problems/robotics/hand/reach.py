@@ -55,7 +55,7 @@ def goal_distance(goal_a, goal_b):
 class HandReachEnv(hand_env.HandEnv, utils.EzPickle):
     def __init__(
         self, distance_threshold=0.01, n_substeps=20, relative_control=False,
-        initial_qpos=DEFAULT_INITIAL_QPOS, reward_type='sparse',
+        initial_qpos=DEFAULT_INITIAL_QPOS, reward_type='dense',#reward_type='sparse',
     ):
         utils.EzPickle.__init__(**locals())
         self.distance_threshold = distance_threshold
@@ -94,6 +94,8 @@ class HandReachEnv(hand_env.HandEnv, utils.EzPickle):
         robot_qpos, robot_qvel = robot_get_obs(self.sim)
         achieved_goal = self._get_achieved_goal().ravel()
         observation = np.concatenate([robot_qpos, robot_qvel, achieved_goal])
+
+        observation = np.concatenate([ self.sim.get_state().flatten()[1:], achieved_goal])
         return {
             'observation': observation.copy(),
             'achieved_goal': achieved_goal.copy(),
