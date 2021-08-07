@@ -30,6 +30,7 @@
 
 # mpirun -np 6 python -u train_HER_mod.py --env-name='State-Based-Navigation-2d-Map4-Goal0-v0' --n-epochs=10 --gamma=.995
 # mpirun -np 6 python -u train_HER_mod.py --env-name='Limited-Range-Based-Navigation-2d-Map4-Goal0-v0' --n-epochs=4 --gamma=.995
-mpirun -np 6 python -u train_HER.py --env-name='Limited-Range-Based-Navigation-2d-Map4-Goal0-v0' --n-epochs=40 --gamma=.995
+# mpirun -np 6 python -u train_HER.py --env-name='Limited-Range-Based-Navigation-2d-Map4-Goal0-v0' --n-epochs=40 --gamma=.995
+mpirun -np 3 python -u train_HER_mod.py --env-name='Limited-Range-Based-Navigation-2d-Map4-Goal0-v0' --n-epochs=5 --gamma=.995
 
 # python main.py GymObstacle2D stable-sparse-rrt psst 

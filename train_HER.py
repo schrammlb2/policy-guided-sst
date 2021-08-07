@@ -27,7 +27,7 @@ from pomp.example_problems.robotics.fetch.pick_and_place import FetchPickAndPlac
 from pomp.example_problems.robotics.hand.reach import HandReachEnv
 
 # from gym_extensions.continuous.gym_navigation_2d.env_generator import Environment, EnvironmentCollection, Obstacle
-from gym_extensions.continuous.gym_navigation_2d.env_generator import Environment#, EnvironmentCollection, Obstacle
+# from gym_extensions.continuous.gym_navigation_2d.env_generator import Environment#, EnvironmentCollection, Obstacle
 
 from HER_mod.rl_modules.velocity_env import MultiGoalEnvironment, CarEnvironment
 from HER_mod.rl_modules.car_env import *
@@ -121,6 +121,7 @@ if __name__ == '__main__':
         suffix = "_p2p"
     else: 
         from HER.rl_modules.sac_agent import ddpg_agent
+        # from HER.rl_modules.intrinsic_motivation_agent import ddpg_agent
         # from HER.rl_modules.value_prior_agent import ddpg_agent
         # from HER.rl_modules.ddpg_agent import ddpg_agent
         # from HER.rl_modules.ddpg_original import ddpg_agent
@@ -130,13 +131,13 @@ if __name__ == '__main__':
 
     agent = launch(args)
 
-    with open("saved_models/her_" + args.env_name + suffix + ".pkl", 'wb') as f:
-        pickle.dump(agent.actor_network, f)
-        print("Saved agent")
+    # with open("saved_models/her_" + args.env_name + suffix + ".pkl", 'wb') as f:
+    #     pickle.dump(agent.actor_network, f)
+    #     print("Saved agent")
 
-    value_estimator = StateValueEstimator(agent.actor_network, agent.critic_network, args.gamma)
+    # value_estimator = StateValueEstimator(agent.actor_network, agent.critic_network, args.gamma)
 
-    with open("saved_models/her_" + args.env_name + "_value" + suffix + ".pkl", 'wb') as f:
-        pickle.dump(value_estimator, f)
-        print("Saved value estimator")
+    # with open("saved_models/her_" + args.env_name + "_value" + suffix + ".pkl", 'wb') as f:
+    #     pickle.dump(value_estimator, f)
+    #     print("Saved value estimator")
 

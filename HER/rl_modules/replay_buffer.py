@@ -19,13 +19,15 @@ class replay_buffer:
                         'ag': np.empty([self.size, self.T + 1, self.env_params['goal']]),
                         'g': np.empty([self.size, self.T, self.env_params['goal']]),
                         'actions': np.empty([self.size, self.T, self.env_params['action']]),
+                        'rff_state': np.empty([self.size, self.T, self.env_params['rff_features']]),
+                        'rff_visit': np.empty([self.size, self.T, self.env_params['rff_features']]),
                         }
         # thread lock
         self.lock = threading.Lock()
     
     # store the episode
     def store_episode(self, episode_batch):
-        mb_obs, mb_ag, mb_g, mb_actions = episode_batch
+        mb_obs, mb_ag, mb_g, mb_actions, mb_rff_state, mb_rff_visit = episode_batch
         batch_size = mb_obs.shape[0]
         with self.lock:
             idxs = self._get_storage_idx(inc=batch_size)
@@ -34,6 +36,8 @@ class replay_buffer:
             self.buffers['ag'][idxs] = mb_ag
             self.buffers['g'][idxs] = mb_g
             self.buffers['actions'][idxs] = mb_actions
+            self.buffers['rff_state'][idxs] = mb_rff_state
+            self.buffers['rff_visit'][idxs] = mb_rff_visit
             self.n_transitions_stored += self.T * batch_size
     
     # sample the data from the replay buffer

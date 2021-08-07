@@ -464,6 +464,227 @@ class StableSparseRRT(TreePlanner):
 
 
 
+class StableSparseRRT(TreePlanner):
+    """An implementation of Littlefield et al 2014 Stable Sparse RRT.
+    
+    Nodes get a cost 'c' and an active flag 'active'.
+
+    The witness set consists of pairs [point,rep].
+    """
+    def __init__(self,controlSpace,objective,metric,edgeChecker,
+                 **params):
+        """Given a ControlSpace controlSpace, a metric, and an edge checker"""
+        TreePlanner.__init__(self)
+        self.controlSpace = controlSpace
+        if not isinstance(controlSpace,ControlSpace):
+            print("Warning, controlSpace is not a ControlSpace")
+        if not isinstance(edgeChecker,EdgeChecker):
+            print("Warning, edgeChecker is not an EdgeChecker")
+        self.cspace = controlSpace.configurationSpace()    
+        self.metric = metric
+        self.objective = objective
+        self.edgeChecker = edgeChecker
+        self.controlSelector = self.getProblemControlSelector(controlSpace)
+
+        if hasattr(controlSpace, 'heuristic'):
+            print("Using heuristic")
+            self.heuristic = controlSpace.heuristic
+        else: 
+            print("No heuristic found in environment. Using h(x) = 0")
+            self.heuristic = None
+
+        self.goal = None
+        self.goalSampler = None
+        self.pChooseGoal = popdefault(params,'pChooseGoal',0.1)
+        self.goalNodes = []
+        self.selectionRadius = popdefault(params,'selectionRadius',0.1)
+        self.witnessRadius = popdefault(params,'witnessRadius',0.03)
+        self.witnessSet = []
+        # self.configurationSampler = Sampler(self.controlSpace.configurationSpace())   
+        self.configurationSampler = self.getProblemConfigurationSampler(controlSpace)        
+        nnmethod = popdefault(params,'nearestNeighborMethod','kdtree')
+        self.nearestNeighbors = NearestNeighbors(self.metric,nnmethod)
+        self.nearestWitness = NearestNeighbors(self.metric,nnmethod)
+        self.stats = Profiler()
+        self.numIters = self.stats.count('numIters')
+        self.bestPathCost = infty
+        self.bestPath = None
+        if len(params) != 0:
+            print("Warning, unused params",params)
+
+    def destroy(self):
+        TreePlanner.destroy(self)
+        self.goalNodes = []
+        self.witnessSet = []
+    
+    def reset(self):
+        """Re-initializes the RRT* to the same start / goal, clears the
+        planning tree."""
+        x0 = self.root.x
+        goal = self.goal
+        self.bestPathCost = infty
+        self.bestPath = None
+        self.destroy()
+        self.setBoundaryConditions(x0,goal)
+        self.numIters.set(0)
+    
+    def setBoundaryConditions(self,x0,goal):
+        """Initializes the tree from a start state x0 and a goal
+        ConfigurationSubset.
+        
+        goal can be set to None to just explore.
+        """
+        self.setRoot(x0)
+        self.root.c = 0
+        self.root.active = True
+        self.witnessSet = [[x0,self.root]]
+        self.goal = goal
+        if goal != None:
+            if isinstance(goal,(list,tuple)):
+                self.goal = SingletonSubset(self.cspace,goal)
+            self.goalSampler = SubsetSampler(self.cspace,self.goal)
+        self.nearestNeighbors.reset()
+        self.nearestNeighbors.add(x0,self.root)
+        self.nearestWitness.reset()
+        self.nearestWitness.add(x0,self.witnessSet[0])
+
+
+    def getProblemControlSelector(self, controlSpace):
+        print("Using SST default random controller")
+        controlSelector = RandomControlSelector(controlSpace,self.metric,1)
+        return controlSelector
+
+
+    def getProblemConfigurationSampler(self, controlSpace):
+        print("Using uniform configuration space sampler")
+        configurationSampler = Sampler(self.controlSpace.configurationSpace())
+        return configurationSampler
+
+    def setConfigurationSampler(self,sampler):
+        self.configurationSampler = sampler
+
+    def setControlSelector(self,selector):
+        self.controlSelector = selector
+
+    def planMore(self,iters):
+        for n in range(iters):
+            self.numIters += 1
+            n = self.expand()
+            if n != None and self.goal != None:
+                if self.goal.contains(n.x):
+                    self.goalNodes.append(n)
+                    if n.c + self.objective.terminal(n.x) < self.bestPathCost:
+                        self.bestPathCost = n.c + self.objective.terminal(n.x)
+                        print("New goal node with cost",self.bestPathCost)
+                        self.bestPath = TreePlanner.getPath(self,n)
+                        if self.bestPath == None:
+                            print("Uh... no path to goal?")
+                        return True
+        return False
+        
+    def expand(self):
+        """Expands the tree via the Sparse-Stable-RRT technique.
+        Returns the new node  or None otherwise."""
+        if self.goalSampler and random.uniform(0.0,1.0) < self.pChooseGoal:
+            xrand = self.goalSampler.sample()
+        else:
+            xrand = self.configurationSampler.sample()
+        nnear = self.pickNode(xrand)
+        if nnear == None:
+            return None
+        u = self.controlSelector.select(nnear.x,xrand)
+
+
+        edge = self.controlSpace.interpolator(nnear.x,u)
+        if not self.edgeChecker.feasible(edge):
+            return None
+
+            
+        incremental_cost = self.objective.incremental(nnear.x,u)
+        newcost = nnear.c + incremental_cost
+        assert incremental_cost >= 0
+        assert nnear.c >= 0
+
+        #feasible edge, add it
+        nnew = self.addEdge(nnear,u,edge)
+        nnew.c = newcost
+        nnew.active = True
+        localbest = self.nodeLocallyBest(nnew)
+        if localbest == False:
+            assert nnew == self.nodes[-1]
+            nnew.destroy()
+            self.nodes.pop(-1)
+            return None
+
+        self.nearestNeighbors.add(nnew.x,nnew)
+        for s in localbest[1]:
+            self.doPruning(nnew,s)
+        return nnew
+
+    def nodeLocallyBest(self,n):
+        """Tests the node n against nearby witnesses.  If no witnesses
+        are nearby, n gets added as a witness. Algorithm 7"""
+        res = self.nearestWitness.nearest(n.x)
+        assert res != None
+        s = res[1]
+        if self.metric(s[0],n.x) > self.witnessRadius:
+            self.witnessSet.append([n.x,None])
+            self.nearestWitness.add(n.x,self.witnessSet[-1])
+            return True,self.witnessSet[-1]
+        wlist = self.nearestWitness.neighbors(n.x,self.witnessRadius)
+        better = []
+        for res in wlist:
+            s = res[1]
+            if s[1] == None: better.append(s)
+            if n.c < s[1].c: better.append(s)
+        if len(better)==0: return False
+        return True,better
+    
+    def doPruning(self,n,snearest = None):
+        """Algorithm 8"""
+        if snearest != None:
+            res = self.nearestWitness.nearest(n.x)
+            assert res != None
+            snearest = res[1]
+        npeer = snearest[1]
+        if npeer == n: return
+        snearest[1] = n
+        if npeer != None:
+            npeer.active = False
+            while npeer != None and len(npeer.children)==0 and not npeer.active:
+                p = npeer.parent
+                #remove from NN data structure?
+                cnt = self.nearestNeighbors.remove(npeer.x,npeer)
+                npeer.destroy()
+                npeer = p
+    
+    def pickNode(self,xrand):
+        """Picks a within distance selectionRadius of xrand with the lowest
+        cost.  Algorithm 6"""
+        res = self.nearestNeighbors.neighbors(xrand,self.selectionRadius)
+        activenear = []
+        for pt,n in res:
+            if n.active: activenear.append(n)
+        if len(activenear) == 0:
+            #return nearest of active neighbors
+            res = self.nearestNeighbors.nearest(xrand,lambda pt,n:not n.active)
+            if res ==None: return None
+            nearest_node=res[1]
+        else:
+            #return node with minimum distance
+            cmin = infty
+            res = None
+            for n in activenear:
+                if n.c < cmin:
+                    res = n
+                    cmin = n.c 
+            nearest_node=res
+            # return res
+        return nearest_node
+
+    def getPath(self):
+        return self.bestPath
+
 
 
 class StableSparseRRTStar:
