@@ -24,7 +24,7 @@ class replay_buffer:
 
         if self.rff: 
             self.buffers['rff_state'] = np.empty([self.size, self.T, self.env_params['rff_features']])
-            self.buffers['rff_visit'] =  np.empty([self.size, self.T, self.env_params['rff_features']]),
+            self.buffers['rff_visit'] =  np.empty([self.size, self.T, self.env_params['rff_features']])
         # thread lock
         self.lock = threading.Lock()
     

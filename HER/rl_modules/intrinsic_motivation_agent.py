@@ -243,8 +243,8 @@ class ddpg_agent:
         inputs_next_norm_tensor = torch.tensor(inputs_next_norm, dtype=torch.float32)
         actions_tensor = torch.tensor(transitions['actions'], dtype=torch.float32)
         r_tensor = torch.tensor(transitions['r'], dtype=torch.float32) 
-        rff_state_tensor = torch.tensor(transitions['rff_state'], dtype=torch.float32)#/self.args.rff_features**.5#*0 
-        rff_visit_tensor = torch.tensor(transitions['rff_visit'], dtype=torch.float32)#*.001
+        rff_state_tensor = self.args.rff_features**.5*torch.tensor(transitions['rff_state'], dtype=torch.float32)#/self.args.rff_features**.5#*0 
+        rff_visit_tensor = self.args.rff_features**.5*torch.tensor(transitions['rff_visit'], dtype=torch.float32)#*.001
         # if self.args.cuda:
         #     inputs_norm_tensor = inputs_norm_tensor.cuda()
         #     inputs_next_norm_tensor = inputs_next_norm_tensor.cuda()
@@ -256,17 +256,20 @@ class ddpg_agent:
             # concatenate the stuffs
             actions_next, log_prob_next = self.actor_target_network(inputs_next_norm_tensor, rff_state_tensor, rff_visit_tensor, with_logprob = True)
             log_prob_penalty = self.args.entropy_regularization*log_prob_next
-            log_n = torch.log(torch.tensor(self.n))
+            log_n = torch.log(torch.tensor(self.n*1.))
             dot_prod = torch.sum(rff_state_tensor*rff_visit_tensor, dim=-1)
+            dot_prod = torch.clip(dot_prod, min=.00001)
             try: 
                 assert (dot_prod > -1).all()
             except: 
                 pdb.set_trace()
             # boredom = -self.args.boredom*torch.log(1/(log_n)+torch.sum(rff_state_tensor*rff_visit_tensor, dim=-1))
             boredom = -self.args.boredom*torch.log(1+dot_prod)
-            # q_next_value = (self.critic_target_network(inputs_next_norm_tensor, actions_next) + 
-            #             log_prob_penalty + boredom - boredom.max().detach())
-            q_next_value = (self.critic_target_network(inputs_next_norm_tensor, actions_next))
+            q_next_value = (self.critic_target_network(inputs_next_norm_tensor, actions_next, 
+                            rff_state_tensor, rff_visit_tensor) + 
+                        log_prob_penalty + boredom - boredom.max().detach())
+            # q_next_value = (self.critic_target_network(inputs_next_norm_tensor, actions_next, 
+            #                 rff_state_tensor, rff_visit_tensor))
             q_next_value = q_next_value.detach()
             target_q_value = r_tensor + self.args.gamma * q_next_value #* (-r_tensor) 
             target_q_value = target_q_value.detach()
@@ -274,11 +277,11 @@ class ddpg_agent:
             clip_return = 1 / (1 - self.args.gamma)
             target_q_value = torch.clamp(target_q_value, -clip_return, 0)
         # the q loss
-        real_q = self.critic_network(inputs_norm_tensor, actions_tensor)
+        real_q = self.critic_network(inputs_norm_tensor, actions_tensor, rff_state_tensor, rff_visit_tensor)
         critic_loss = (target_q_value - real_q).pow(2).mean()
         # the actor loss
         actions_real, log_prob = self.actor_network(inputs_norm_tensor, rff_state_tensor, rff_visit_tensor, with_logprob = True)
-        actor_loss = -self.critic_network(inputs_norm_tensor, actions_real).mean() + self.args.entropy_regularization*log_prob.mean()
+        actor_loss = -self.critic_network(inputs_norm_tensor, actions_real, rff_state_tensor, rff_visit_tensor).mean() + self.args.entropy_regularization*log_prob.mean()
         actor_loss += self.args.action_l2 * (actions_real / self.env_params['action_max']).pow(2).mean()
 
         # actions_ag, log_prob = self.actor_network(inputs_goal_tensor, with_logprob = True)

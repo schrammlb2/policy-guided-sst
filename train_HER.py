@@ -120,8 +120,8 @@ if __name__ == '__main__':
         from HER.rl_modules.tdm_p2p import ddpg_agent
         suffix = "_p2p"
     else: 
-        from HER.rl_modules.sac_agent import ddpg_agent
-        # from HER.rl_modules.intrinsic_motivation_agent import ddpg_agent
+        # from HER.rl_modules.sac_agent import ddpg_agent
+        from HER.rl_modules.intrinsic_motivation_agent import ddpg_agent
         # from HER.rl_modules.value_prior_agent import ddpg_agent
         # from HER.rl_modules.ddpg_agent import ddpg_agent
         # from HER.rl_modules.ddpg_original import ddpg_agent

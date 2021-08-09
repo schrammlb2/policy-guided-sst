@@ -6,7 +6,7 @@ from mpi4py import MPI
 from HER.mpi_utils.mpi_utils import sync_networks, sync_grads
 from HER.mpi_utils.normalizer import normalizer
 from HER.rl_modules.replay_buffer import replay_buffer
-from HER.rl_modules.sac_models import actor, critic#, dual_critic
+from HER.rl_modules.sac_models import actor
 from HER.her_modules.her import her_sampler
 import pdb
 
@@ -16,9 +16,11 @@ ddpg with HER (MPI-version)
 """
 dual = False
 if dual: 
-    critic_constructor = dual_critic
+    from HER.rl_modules.sac_models import dual_critic as critic
 else: 
-    critic_constructor = critic
+    from HER.rl_modules.sac_models import critic
+
+critic_constructor = critic
 
 class ddpg_agent:
     def __init__(self, args, env, env_params):

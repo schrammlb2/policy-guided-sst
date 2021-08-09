@@ -147,7 +147,8 @@ class exploration_actor(nn.Module):
         # self.norm1 = nn.LayerNorm(256)
         self.norm2 = nn.LayerNorm(256)
         self.norm3 = nn.LayerNorm(256)
-        self.fc1 = nn.Linear(env_params['obs'] + env_params['goal'] + 2*env_params['rff_features'], 256)
+        self.fc1 = nn.Linear(env_params['obs'] + env_params['goal'], 256)
+        self.fc_rff = nn.Linear(2*env_params['rff_features'], 256)
         self.fc2 = nn.Linear(256, 256)
         self.fc3 = nn.Linear(256, 256)
         self.mu_layer = nn.Linear(256, env_params['action'])
@@ -160,13 +161,17 @@ class exploration_actor(nn.Module):
             rff_state = torch.zeros(x.shape[:-1] + (self.env_params['rff_features'],))
         if type(rff_visit_states) == type(None): 
             rff_visit_states = torch.zeros(x.shape[:-1] + (self.env_params['rff_features'],))
+
+        # rff_state = rff_state*0
+        # rff_visit_states = rff_visit_states*0
         x = self.norm1(x)
-        x = torch.cat([x, rff_state, rff_visit_states], dim=-1)
+        # x = torch.cat([x, rff_state, rff_visit_states], dim=-1)
             #Explicitly do the norm *before* adding rrf
             #Norming the RRF would make them large and favor them too much in the regression
         # with_logprob = False
         x = torch.clip(x, -clip_max, clip_max)
-        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc1(x) + self.fc_rff(torch.cat([rff_state, rff_visit_states], dim=-1)))
+        # x = F.relu(self.fc1(x))
         x = self.norm2(x)
         x = F.relu(self.fc2(x))
         x = self.norm3(x)
@@ -238,29 +243,32 @@ class exploration_critic(nn.Module):
         self.norm2 = nn.LayerNorm(256)
         self.norm3 = nn.LayerNorm(256)
         rff_encoding_dim = 3*env_params['rff_features'] + 1
-        self.fc1 = nn.Linear(env_params['obs'] + env_params['goal'] + env_params['action'] 
-            + rff_encoding_dim , 256)
+        # self.fc1 = nn.Linear(env_params['obs'] + env_params['goal'] + env_params['action'] 
+        #     + rff_encoding_dim , 256)
+        self.fc1 = nn.Linear(env_params['obs'] + env_params['goal'] + env_params['action'] , 256)
+        self.fc_rff = nn.Linear(rff_encoding_dim , 256)
         self.fc2 = nn.Linear(256, 256)
         self.fc3 = nn.Linear(256, 256)
         self.rff_re_add = nn.Linear(rff_encoding_dim, 256)
         self.q_out = nn.Linear(256, 1)
 
     def forward(self, x, actions, rff_state=None, rff_visit_states=None):
-        if type(rff_state) == type(None): 
-            rff_state = torch.zeros(x.shape[:-1] + (self.env_params['rff_features'],))
-        if type(rff_visit_states) == type(None): 
-            rff_visit_states = torch.zeros(x.shape[:-1] + (self.env_params['rff_features'],))
+        # if type(rff_state) == type(None): 
+        #     rff_state = torch.zeros(x.shape[:-1] + (self.env_params['rff_features'],))
+        # if type(rff_visit_states) == type(None): 
+        #     rff_visit_states = torch.zeros(x.shape[:-1] + (self.env_params['rff_features'],))
         x = torch.cat([x, actions / self.max_action], dim=1)
         x = self.norm1(x)
         prod = rff_state*rff_visit_states
-        rrf = torch.cat([rff_state, rff_visit_states, prod, torch.unsqueeze(torch.sum(prod, dim=-1), dim=-1)], dim=1)
-        x = torch.cat([x, rrf], dim=1)
+        rff = torch.cat([rff_state, rff_visit_states, prod, torch.unsqueeze(torch.sum(prod, dim=-1), dim=-1)], dim=1)
+        # x = torch.cat([x, rrf], dim=1)
         x = torch.clip(x, -clip_max, clip_max)
-        x = F.relu(self.fc1(x))
+        # x = F.relu(self.fc1(x))
+        x = F.relu(self.fc1(x) + self.fc_rff(rff))
         x = self.norm2(x)
         x = F.relu(self.fc2(x))
         x = self.norm3(x)
-        x = F.relu(self.fc3(x) + self.rff_re_add(rrf)*.25)
+        x = F.relu(self.fc3(x) + self.rff_re_add(rff)*.25)
         q_value = self.q_out(x)
 
         return q_value
@@ -284,6 +292,17 @@ def mlp(sizes, activation, output_activation=nn.Identity):
 def count_vars(module):
     return sum([np.prod(p.shape) for p in module.parameters()])
 
+class dual_critic(nn.Module):
+    def __init__(self, env_params):
+        super(dual_critic, self).__init__()
+        self.q1 = critic(env_params)
+        self.q2 = critic(env_params)
+
+    def forward(self, x, actions):
+        return torch.min(self.q1(x, actions), self.q2(x, actions))
+
+    def dual(self, x, actions):
+        return self.q1(x, actions), self.q2(x, actions)
 
 
 class StateValueEstimator(nn.Module):
