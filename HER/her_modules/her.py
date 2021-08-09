@@ -30,7 +30,7 @@ class her_sampler:
         transitions['g'][her_indexes] = future_ag
         transitions['sampled_g'] = future_sampled_ag
         # to get the params to re-compute reward
-        if rff:
+        if rff and 'rff_visit' in transitions.keys():
               rff_visit = transitions['rff_visit'][her_indexes]
               self.rng.shuffle(rff_visit, axis=0)
               transitions['rff_visit'][her_indexes] = rff_visit
