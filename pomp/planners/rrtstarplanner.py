@@ -705,3 +705,198 @@ class Pure_RL(StableSparseRRT):
         self.nearestNeighbors.add(nnew.x,nnew)
         return nnew
 
+
+# class RL_then_SST(StableSparseRRT):
+#     def getProblemControlSelector(self, controlSpace):
+#         if hasattr(controlSpace, 'controlSelector'):
+#             print("Using trained control selector")
+#             # controlSelector = controlSpace.controlSelector(controlSpace,self.metric,1)
+#             controlSelector = controlSpace.pure_rl_controlSelector(controlSpace,self.metric,1)            
+#         else: 
+#             print("No control selector found in environment. Using default random controller")
+#             assert False
+#             # controlSelector = RandomControlSelector(controlSpace,self.metric,1)
+#         return controlSelector
+
+
+#     def reset(self):
+#         """Re-initializes the RRT* to the same start / goal, clears the
+#         planning tree."""
+#         x0 = self.root.x
+#         goal = self.goal
+#         self.bestPathCost = infty
+#         self.bestPath = None
+#         self.destroy()
+#         self.setBoundaryConditions(x0,goal)
+#         self.numIters.set(0)
+#         self.last_node = None
+#         self.has_finished_running_RL = False
+
+#     def partial_reset(self):
+#         x0 = self.root.x
+#         goal = self.goal
+#         self.destroy()
+#         self.setBoundaryConditions(x0,goal)
+#         # self.numIters.set(0)
+
+#     def rl_expand(self):
+#         if self.last_node != None: 
+#             nnear = self.last_node
+#             xrand = None
+#         else: 
+#             xrand = self.configurationSampler.sample()
+#             nnear = self.pickNode(xrand)
+
+#         if nnear == None:
+#             return None
+#         u = self.controlSelector.select(nnear.x,xrand)
+
+#         edge = self.controlSpace.interpolator(nnear.x,u)
+#         if not self.edgeChecker.feasible(edge):
+#             return None
+            
+#         incremental_cost = self.objective.incremental(nnear.x,u)
+#         newcost = nnear.c + incremental_cost
+#         assert incremental_cost >= 0
+#         assert nnear.c >= 0
+
+#         #feasible edge, add it
+#         nnew = self.addEdge(nnear,u,edge)
+#         nnew.c = newcost
+#         nnew.active = True
+
+#         self.last_node = nnew
+
+#         self.nearestNeighbors.add(nnew.x,nnew)
+#         return nnew
+
+#     def expand(self):
+#         if self.numIters.count < 100: 
+#             #Start by running the RL agent
+#             if self.bestPathCost == infty:
+#                 return self.rl_expand() 
+#             else: 
+#                 return None
+#         if self.numIters.count > 100: 
+#             if not self.has_finished_running_RL:
+#                 #Done with the RL phase. Partially reset the tree so SST can run
+#                 self.partial_reset()
+#                 self.has_finished_running_RL = True
+#             #Run SST
+#             # return StableSparseRRT.expand() 
+#             return super().expand() 
+
+class RL_then_SST(StableSparseRRT):
+
+
+
+    def __init__(self,controlSpace,objective,metric,edgeChecker,
+                 **params):
+        """Given a ControlSpace controlSpace, a metric, and an edge checker"""
+        TreePlanner.__init__(self)
+        self.controlSpace = controlSpace
+        if not isinstance(controlSpace,ControlSpace):
+            print("Warning, controlSpace is not a ControlSpace")
+        if not isinstance(edgeChecker,EdgeChecker):
+            print("Warning, edgeChecker is not an EdgeChecker")
+        self.cspace = controlSpace.configurationSpace()    
+        self.metric = metric
+        self.objective = objective
+        self.edgeChecker = edgeChecker
+        self.controlSelector = self.getProblemControlSelector(controlSpace)
+        self.RLcontrolSelector = self.getRLProblemControlSelector(controlSpace)
+
+        if hasattr(controlSpace, 'heuristic'):
+            print("Using heuristic")
+            self.heuristic = controlSpace.heuristic
+        else: 
+            print("No heuristic found in environment. Using h(x) = 0")
+            self.heuristic = None
+
+        self.goal = None
+        self.goalSampler = None
+        self.pChooseGoal = popdefault(params,'pChooseGoal',0.1)
+        self.goalNodes = []
+        self.selectionRadius = popdefault(params,'selectionRadius',0.1)
+        self.witnessRadius = popdefault(params,'witnessRadius',0.03)
+        self.witnessSet = []
+        # self.configurationSampler = Sampler(self.controlSpace.configurationSpace())   
+        self.configurationSampler = self.getProblemConfigurationSampler(controlSpace)        
+        nnmethod = popdefault(params,'nearestNeighborMethod','kdtree')
+        self.nearestNeighbors = NearestNeighbors(self.metric,nnmethod)
+        self.nearestWitness = NearestNeighbors(self.metric,nnmethod)
+        self.stats = Profiler()
+        self.numIters = self.stats.count('numIters')
+        self.bestPathCost = infty
+        self.bestPath = None
+        if len(params) != 0:
+            print("Warning, unused params",params)
+
+        # self.run_rl_pass()
+
+    def getRLProblemControlSelector(self, controlSpace):
+        if hasattr(controlSpace, 'controlSelector'):
+            print("Using trained control selector")
+            # controlSelector = controlSpace.controlSelector(controlSpace,self.metric,1)
+            controlSelector = controlSpace.pure_rl_controlSelector(controlSpace,self.metric,1)            
+        else: 
+            print("No control selector found in environment. Using default random controller")
+            assert False
+            # controlSelector = RandomControlSelector(controlSpace,self.metric,1)
+        return controlSelector
+
+
+    def rl_expand(self):
+        # if self.last_node != None: 
+        #     nnear = self.last_node
+        #     xrand = None
+        # else: 
+        #     xrand = self.configurationSampler.sample()
+        #     nnear = self.pickNode(xrand)
+
+        nnear = self.last_node
+        assert nnear is not None
+        xrand = None
+
+        if nnear == None:
+            return None
+        u = self.RLcontrolSelector.select(nnear.x,xrand)
+
+        edge = self.controlSpace.interpolator(nnear.x,u)
+        if not self.edgeChecker.feasible(edge):
+            return None
+            
+        incremental_cost = self.objective.incremental(nnear.x,u)
+        newcost = nnear.c + incremental_cost
+        assert incremental_cost >= 0
+        assert nnear.c >= 0
+
+        #feasible edge, add it
+        nnew = self.addEdge(nnear,u,edge)
+        nnew.c = newcost
+        nnew.active = True
+
+        self.last_node = nnew
+
+        self.nearestNeighbors.add(nnew.x,nnew)
+        return nnew
+
+    
+    def reset(self):
+        """Re-initializes the RRT* to the same start / goal, clears the
+        planning tree."""
+        x0 = self.root.x
+        goal = self.goal
+        self.bestPathCost = infty
+        self.bestPath = None
+        self.destroy()
+        self.setBoundaryConditions(x0,goal)
+        self.numIters.set(0)
+        self.last_node = self.root
+    
+
+    def expand(self):
+        if self.numIters.count < 100:
+            return self.rl_expand()
+        else: 
+            return super().expand()

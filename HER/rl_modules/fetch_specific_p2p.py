@@ -15,8 +15,11 @@ from sample_valid_goal import sample_valid_goal
 ddpg with HER (MPI-version)
 
 """
-# critic_constructor = critic
-critic_constructor = dual_critic
+dual = False
+if dual: 
+    critic_constructor = dual_critic
+else: 
+    critic_constructor = critic
 
 def reset_sim(env, mean, std):
     config = np.random.uniform(mean + std/20, mean - std/20)
@@ -84,6 +87,8 @@ class ddpg_agent:
         #     (self.o_norm.normalize(o)-self.g_norm.normalize(g))**2
         #     , axis=-1)**.5
         # self.sparse_reward_fn = lambda o, g, x=None: (-self.dense_reward_fn(o, g) < scale) - 1
+
+        self.heuristic = lambda o, g, x=None: np.mean((o-g)**2, axis=-1)**.5
 
         # her sampler
         # self.her_module = her_sampler(self.args.replay_strategy, self.args.replay_k, self.env.compute_reward)
@@ -285,7 +290,7 @@ class ddpg_agent:
             # do the normalization
             # concatenate the stuffs
             actions_next, log_prob_next = self.actor_target_network(inputs_next_norm_tensor, with_logprob = True)
-            q_next_value = self.critic_target_network(inputs_next_norm_tensor, actions_next) + self.args.entropy_regularization*log_prob_next 
+            q_next_value = self.critic_target_network(inputs_next_norm_tensor, actions_next) - self.args.entropy_regularization*log_prob_next 
             q_next_value = q_next_value.detach()
             target_q_value = r_tensor + self.args.gamma * q_next_value * (r_tensor < self.reward_threshhold) 
             target_q_value = target_q_value.detach()
@@ -295,11 +300,15 @@ class ddpg_agent:
         # the q loss
         # real_q_value = self.critic_network(inputs_norm_tensor, actions_tensor)
         # critic_loss = (target_q_value - real_q_value).pow(2).mean()
-        real_q_1, real_q_2 = self.critic_network.dual(inputs_norm_tensor, actions_tensor)
-        critic_loss = (target_q_value - real_q_1).pow(2).mean() + (target_q_value - real_q_2).pow(2).mean()
+        if dual: 
+            real_q_1, real_q_2 = self.critic_network.dual(inputs_norm_tensor, actions_tensor)
+            critic_loss = (target_q_value - real_q_1).pow(2).mean() + (target_q_value - real_q_2).pow(2).mean()
+        else: 
+            real_q_value = self.critic_network(inputs_norm_tensor, actions_tensor)
+            critic_loss = (target_q_value - real_q_value).pow(2).mean()
         # the actor loss
         actions_real, log_prob = self.actor_network(inputs_norm_tensor, with_logprob = True)
-        actor_loss = -self.critic_network(inputs_norm_tensor, actions_real).mean() + self.args.entropy_regularization*log_prob.mean()
+        actor_loss = -self.critic_network(inputs_norm_tensor, actions_real).mean() - self.args.entropy_regularization*log_prob.mean()
         actor_loss += self.args.action_l2 * (actions_real / self.env_params['action_max']).pow(2).mean()
         # start to update the network
         self.actor_optim.zero_grad()

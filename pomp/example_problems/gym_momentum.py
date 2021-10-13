@@ -70,9 +70,9 @@ mean_GD_steps = 5
 epsilon = 1/(1+mean_GD_steps)
 # class GymPendulum: 
 class Momentum: 
-    def __init__(self, shift=False, vel_goal=False):
+    def __init__(self, shift=False, vel_goal=False, shift_scale=1):
         # self.env = MultiGoalEnvironment("MultiGoalEnvironment", vel_goal=True, time=True)
-        self.env = MultiGoalEnvironment("MultiGoalEnvironment", vel_goal=vel_goal, time=True, shift=shift)
+        self.env = MultiGoalEnvironment("MultiGoalEnvironment", vel_goal=vel_goal, time=True, shift=shift, shift_scale=shift_scale)
         observation = self.env.reset()
         setattr(self.env, 'set_state', set_state)
         # self.start_state = [-.95, -.95, 0., 0.0]
@@ -103,12 +103,13 @@ class Momentum:
             return rv
 
         # self.control_space.controlSelector = make_control_selector
-        self.control_space.controlSelector = control_selector_maker(.5, .1)
-        # self.control_space.controlSelector = control_selector_maker(.2, .5)
+        # self.control_space.controlSelector = control_selector_maker(.5, .1)
+        self.control_space.controlSelector = control_selector_maker(.2, .5)
         # self.control_space.controlSelector = control_selector_maker(.5, .5)
         # self.control_space.controlSelector = control_selector_maker(.0, .5)
         self.control_space.p2pControlSelector = control_selector_maker(0, 0)
         self.control_space.pure_rl_controlSelector = pure_rl_selector
+        self.set_heuristic(env_name)
 
         self.set_value_function(env_name)
 
@@ -130,6 +131,14 @@ class Momentum:
     def goalSet(self):
         return self.control_space.goal_set
 
+    def set_heuristic(self, heuristic_name):
+        heuristic = HeuristicWrapper(agent_loc + heuristic_name + heuristic_infix + p2p_suffix, self.goal, goal_conditioned=True)
+        # def make_control_selector(controlSpace,metric,numSamples):
+        #     return lambda x: heuristic.evaluate(x, self.goal)
+            # return RLAgentControlSelector(controlSpace,metric,numSamples, rl_agent = agent, p_goal = 0, p_random=1, goal=goal)
+        heuristic.evaluate = lambda a, b: 0
+        self.control_space.heuristic = heuristic
+        
     def set_value_function(self, value_function_name):
         cs = self.configurationSpace()
         goal_filename = agent_loc + value_function_name + value_function_infix + goal_suffix
@@ -199,6 +208,31 @@ def gymMomentumVelGoalTest():
 def gymMomentumShiftTest():
     # gym_momentum_test()
     p = Momentum(shift=True)
+    # objective = TimeObjectiveFunction()
+    objective = TimeLengthObjectiveFunction()
+    return PlanningProblem(p.controlSpace(),p.startState(),p.goalSet(),
+                           objective=objective)
+
+
+def gymMomentumShiftTest2():
+    # gym_momentum_test()
+    p = Momentum(shift=True, shift_scale=2)
+    # objective = TimeObjectiveFunction()
+    objective = TimeLengthObjectiveFunction()
+    return PlanningProblem(p.controlSpace(),p.startState(),p.goalSet(),
+                           objective=objective)
+
+def gymMomentumShiftTest3():
+    # gym_momentum_test()
+    p = Momentum(shift=True, shift_scale=3)
+    # objective = TimeObjectiveFunction()
+    objective = TimeLengthObjectiveFunction()
+    return PlanningProblem(p.controlSpace(),p.startState(),p.goalSet(),
+                           objective=objective)
+
+def gymMomentumShiftTest4():
+    # gym_momentum_test()
+    p = Momentum(shift=True, shift_scale=4)
     # objective = TimeObjectiveFunction()
     objective = TimeLengthObjectiveFunction()
     return PlanningProblem(p.controlSpace(),p.startState(),p.goalSet(),

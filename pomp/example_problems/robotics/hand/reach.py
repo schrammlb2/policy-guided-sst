@@ -55,7 +55,7 @@ def goal_distance(goal_a, goal_b):
 class HandReachEnv(hand_env.HandEnv, utils.EzPickle):
     def __init__(
         self, distance_threshold=0.01, n_substeps=20, relative_control=False,
-        initial_qpos=DEFAULT_INITIAL_QPOS, reward_type='dense',#reward_type='sparse',
+        initial_qpos=DEFAULT_INITIAL_QPOS, reward_type='sparse',#reward_type='dense',
     ):
         utils.EzPickle.__init__(**locals())
         self.distance_threshold = distance_threshold

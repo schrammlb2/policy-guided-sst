@@ -9,13 +9,19 @@ from HER.rl_modules.replay_buffer import replay_buffer
 from HER.rl_modules.sac_models import actor, critic, dual_critic
 from HER.her_modules.her import her_sampler
 import pdb
+import math
 
 """
 ddpg with HER (MPI-version)
 
 """
-# critic_constructor = critic
-critic_constructor = dual_critic
+dual = False
+if dual: 
+    critic_constructor = dual_critic
+else: 
+    critic_constructor = critic
+
+reward_offset = lambda t : 0#math.log(t+3) -1
 
 class ddpg_agent:
     def __init__(self, args, env, env_params):
@@ -49,6 +55,7 @@ class ddpg_agent:
         self.her_module = her_sampler(self.args.replay_strategy, self.args.replay_k, self.env.compute_reward)
         # create the replay buffer
         self.buffer = replay_buffer(self.env_params, self.args.buffer_size, self.her_module.sample_her_transitions)
+        self.t = 1
         # create the normalizer
         self.o_norm = normalizer(size=env_params['obs'], default_clip_range=self.args.clip_range)
         self.g_norm = normalizer(size=env_params['goal'], default_clip_range=self.args.clip_range)
@@ -68,6 +75,7 @@ class ddpg_agent:
         """
         # start to collect samples
         for epoch in range(self.args.n_epochs):
+            self.t = epoch + 1
             for _ in range(self.args.n_cycles):
                 mb_obs, mb_ag, mb_g, mb_actions = [], [], [], []
                 for _ in range(self.args.num_rollouts_per_mpi):
@@ -208,7 +216,7 @@ class ddpg_agent:
         inputs_goal_tensor = torch.tensor(inputs_goal_norm, dtype=torch.float32)
         inputs_next_norm_tensor = torch.tensor(inputs_next_norm, dtype=torch.float32)
         actions_tensor = torch.tensor(transitions['actions'], dtype=torch.float32)
-        r_tensor = torch.tensor(transitions['r'], dtype=torch.float32) 
+        r_tensor = torch.tensor(transitions['r'], dtype=torch.float32) - reward_offset(self.t)
         if self.args.cuda:
             inputs_norm_tensor = inputs_norm_tensor.cuda()
             inputs_next_norm_tensor = inputs_next_norm_tensor.cuda()
@@ -225,12 +233,14 @@ class ddpg_agent:
             target_q_value = target_q_value.detach()
             # clip the q value
             clip_return = 1 / (1 - self.args.gamma)
-            target_q_value = torch.clamp(target_q_value, -clip_return, 0)
+            # target_q_value = torch.clamp(target_q_value, -clip_return, 0)
         # the q loss
-        # real_q_value = self.critic_network(inputs_norm_tensor, actions_tensor)
-        # critic_loss = (target_q_value - real_q_value).pow(2).mean()
-        real_q_1, real_q_2 = self.critic_network.dual(inputs_norm_tensor, actions_tensor)
-        critic_loss = (target_q_value - real_q_1).pow(2).mean() + (target_q_value - real_q_2).pow(2).mean()
+        if dual: 
+            real_q_1, real_q_2 = self.critic_network.dual(inputs_norm_tensor, actions_tensor)
+            critic_loss = (target_q_value - real_q_1).pow(2).mean() + (target_q_value - real_q_2).pow(2).mean()
+        else: 
+            real_q_value = self.critic_network(inputs_norm_tensor, actions_tensor)
+            critic_loss = (target_q_value - real_q_value).pow(2).mean()
         # the actor loss
         actions_real, log_prob = self.actor_network(inputs_norm_tensor, with_logprob = True)
         actor_loss = -self.critic_network(inputs_norm_tensor, actions_real).mean() + self.args.entropy_regularization*log_prob.mean()

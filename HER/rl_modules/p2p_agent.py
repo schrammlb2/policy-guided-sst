@@ -9,14 +9,19 @@ from HER.rl_modules.replay_buffer import replay_buffer
 from HER.rl_modules.sac_models import actor, critic, dual_critic
 from HER.her_modules.her import her_sampler
 import copy
+import pdb
 from sample_valid_goal import sample_valid_goal
+import math
 
 """
 ddpg with HER (MPI-version)
 
 """
-# critic_constructor = critic
-critic_constructor = dual_critic
+dual = False
+if dual: 
+    critic_constructor = dual_critic
+else: 
+    critic_constructor = critic
 
 class ddpg_agent:
     def __init__(self, args, env, env_params):
@@ -50,11 +55,16 @@ class ddpg_agent:
         self.critic_optim = torch.optim.Adam(self.critic_network.parameters(), lr=self.args.lr_critic)
 
         # self.reward_fn = lambda o, g, x=None: (np.mean((o-g)**2, axis=-1) < .0025) -1
-        scale = .25
-        self.sparse_reward_fn = lambda o, g, x=None: (np.mean(np.abs(o-g), axis=-1)/scale < 1) -1
+        scale = .75
+        # self.sparse_reward_fn = lambda o, g, x=None: (np.mean(np.abs(o-g), axis=-1)/scale < 1) -1
+        self.sparse_reward_fn = lambda o, g, x=None:  (np.mean(((o-g)/scale)**2, axis=-1) < 1) -1
         # self.sparse_reward_fn = lambda o, g, x=None: (np.all(np.abs(o-g)/scale < 1, axis=-1)) -1
         # self.sparse_reward_fn = lambda o, g, x=None: (np.sum(np.abs(o-g), axis=-1)/(scale*o.shape[0]) < 1) -1
-        self.dense_reward_fn = lambda o, g, x=None: -np.mean((o-g)**2, axis=-1)
+        # self.dense_reward_fn = lambda o, g, x=None: -np.mean((o-g)**2, axis=-1)
+        self.dense_reward_fn = lambda o, g, x=None: math.e**(-(np.mean(((o-g)/scale)**2, axis=-1))) -1
+
+        self.heuristic = lambda o, g, x=None: 1*np.mean((o-g)**2, axis=-1)**.5
+        self.reward_offset = -1
 
         # her sampler
         # self.her_module = her_sampler(self.args.replay_strategy, self.args.replay_k, self.env.compute_reward)
@@ -134,11 +144,12 @@ class ddpg_agent:
                 self._soft_update_target_network(self.actor_target_network, self.actor_network)
                 self._soft_update_target_network(self.critic_target_network, self.critic_network)
             # start to do the evaluation
-            success_rate = self._eval_agent()
+            success_rate, reward = self._eval_agent()
             if MPI.COMM_WORLD.Get_rank() == 0:
-                print('[{}] epoch is: {}, eval success rate is: {:.3f}'.format(datetime.now(), epoch, success_rate))
+                print('[{}] epoch is: {}, eval success rate is: {:.3f}, average reward is: {:.3f}'.format(datetime.now(), epoch, success_rate, reward))
                 torch.save([self.o_norm.mean, self.o_norm.std, self.g_norm.mean, self.g_norm.std, self.actor_network.state_dict()], \
                             self.model_path + '/model.pt')
+
 
     # pre_process the inputs
     def _preproc_inputs(self, obs, g):
@@ -220,7 +231,16 @@ class ddpg_agent:
         inputs_norm_tensor = torch.tensor(inputs_norm, dtype=torch.float32)
         inputs_next_norm_tensor = torch.tensor(inputs_next_norm, dtype=torch.float32)
         actions_tensor = torch.tensor(transitions['actions'], dtype=torch.float32)
+        # ag_heuristic = self.heuristic(transitions['ag'], transitions['g'])
+        # ag_next_heuristic = self.heuristic(transitions['ag_next'], transitions['g'])
+
+        # psuedo_reward = ag_heuristic-ag_next_heuristic
+        # psuedo_reward = (self.dense_reward_fn(transitions['ag'], transitions['g'])-.25*self.dense_reward_fn(transitions['ag_next'], transitions['g']))
+        # psuedo_reward = ag_heuristic-ag_next_heuristic + self.sparse_reward_fn(transitions['ag_next'], transitions['g'])
+
         r_tensor = torch.tensor(transitions['r'], dtype=torch.float32) 
+        # r_tensor = torch.tensor(psuedo_reward, dtype=torch.float32) 
+        # pdb.set_trace()
         if self.args.cuda:
             inputs_norm_tensor = inputs_norm_tensor.cuda()
             inputs_next_norm_tensor = inputs_next_norm_tensor.cuda()
@@ -231,7 +251,7 @@ class ddpg_agent:
             # do the normalization
             # concatenate the stuffs
             actions_next, log_prob_next = self.actor_target_network(inputs_next_norm_tensor, with_logprob = True)
-            q_next_value = self.critic_target_network(inputs_next_norm_tensor, actions_next) + self.args.entropy_regularization*log_prob_next 
+            q_next_value = self.critic_target_network(inputs_next_norm_tensor, actions_next) - self.args.entropy_regularization*log_prob_next 
             q_next_value = q_next_value.detach()
             target_q_value = r_tensor + self.args.gamma * q_next_value #* (-r_tensor) 
             target_q_value = target_q_value.detach()
@@ -241,11 +261,15 @@ class ddpg_agent:
         # the q loss
         # real_q_value = self.critic_network(inputs_norm_tensor, actions_tensor)
         # critic_loss = (target_q_value - real_q_value).pow(2).mean()
-        real_q_1, real_q_2 = self.critic_network.dual(inputs_norm_tensor, actions_tensor)
-        critic_loss = (target_q_value - real_q_1).pow(2).mean() + (target_q_value - real_q_2).pow(2).mean()
+        if dual: 
+            real_q_1, real_q_2 = self.critic_network.dual(inputs_norm_tensor, actions_tensor)
+            critic_loss = (target_q_value - real_q_1).pow(2).mean() + (target_q_value - real_q_2).pow(2).mean()
+        else: 
+            real_q_value = self.critic_network(inputs_norm_tensor, actions_tensor)
+            critic_loss = (target_q_value - real_q_value).pow(2).mean()
         # the actor loss
         actions_real, log_prob = self.actor_network(inputs_norm_tensor, with_logprob = True)
-        actor_loss = -self.critic_network(inputs_norm_tensor, actions_real).mean() + self.args.entropy_regularization*log_prob.mean()
+        actor_loss = -self.critic_network(inputs_norm_tensor, actions_real).mean() - self.args.entropy_regularization*log_prob.mean()
         actor_loss += self.args.action_l2 * (actions_real / self.env_params['action_max']).pow(2).mean()
         # start to update the network
         self.actor_optim.zero_grad()
@@ -273,6 +297,7 @@ class ddpg_agent:
     # do the evaluation
     def _eval_agent(self):
         total_success_rate = []
+        total_reward_rate = []
         for _ in range(self.args.n_test_rollouts):
             per_success_rate = []
             observation = self.env.reset()
@@ -280,7 +305,8 @@ class ddpg_agent:
             # g = observation['desired_goal']
             # g = self.observation_space.sample()
             g = sample_valid_goal(self.env)
-            total_r = 0
+            total_sparse_r = 0
+            total_dense_r = 0
             for _ in range(self.env_params['max_timesteps']):
                 with torch.no_grad():
                     pi = self.actor_network.normed_forward(obs, g, deterministic=True)
@@ -294,12 +320,19 @@ class ddpg_agent:
                 observation_new, _, _, info = self.env.step(actions)
                 obs = observation_new['observation']
                 # g = observation_new['desired_goal']
-                total_r += self.sparse_reward_fn(obs, g)
-                per_success_rate.append(info['is_success'])
-            total_success_rate.append(total_r)
-            # total_success_rate.append(per_success_rate)
+                # total_sparse_r += self.sparse_reward_fn(obs, g)
+                total_dense_r += self.dense_reward_fn(obs, g)
+                # per_success_rate.append(info['is_success'])
+            total_sparse_r += self.sparse_reward_fn(obs, g) + 1
+            per_success_rate.append(total_sparse_r)
+            total_success_rate.append(per_success_rate)
+            total_reward_rate.append(total_dense_r)
         total_success_rate = np.array(total_success_rate)
-        # local_success_rate = np.mean(total_success_rate[:, -1])
-        local_success_rate = np.mean(total_success_rate)
+        total_reward_rate = np.array(total_reward_rate)
+
+        local_success_rate = np.mean(total_success_rate[:, -1])
+        local_reward_rate = np.mean(total_reward_rate)
+        
         global_success_rate = MPI.COMM_WORLD.allreduce(local_success_rate, op=MPI.SUM)
-        return global_success_rate / MPI.COMM_WORLD.Get_size()
+        global_reward_rate = MPI.COMM_WORLD.allreduce(local_reward_rate, op=MPI.SUM)
+        return global_success_rate / MPI.COMM_WORLD.Get_size(), global_reward_rate / MPI.COMM_WORLD.Get_size()

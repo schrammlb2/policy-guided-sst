@@ -29,13 +29,16 @@ labelmap = {"lazy_rrgstar":"Lazy-RRG*",
             "rrtstar_subopt_0.1":"LBT-RRT*(0.1)",
             "rrtstar_subopt_0.2":"LBT-RRT*(0.2)",
             "policy_guided_gradient_descent_sst": "PSST (proposed)",
-            "policy_guided_sst": "PSST without GD Sampling",
+            # "policy_guided_sst": "PSST without GD Sampling",
+            "policy_guided_sst": "PSST (proposed)",
             "stable_sparse_rrt": "Stable Sparse RRT (SST)",
-            "rl": "RL (SAC + HER)"
+            "rl": "RL (SAC + HER)",
+            "rl_rrt": "RL-RRT",
+            "rl-then-sst": "Best of (RL, SST)"
 }
 #labelorder = ["restart_rrt_shortcut","prmstar","fmmstar","rrtstar","birrtstar","rrtstar_subopt_0.1","rrtstar_subopt_0.2","lazy_prmstar","lazy_rrgstar","lazy_birrgstar"]
 labelorder = ["ao_rrt","ao_est","repeated_rrt","repeated_est","repeated_rrt_prune","repeated_est_prune","stable_sparse_rrt","anytime_rrt","rrtstar"]
-labelorder += ['gradient_descent_sst', 'policy_guided_gradient_descent_sst', 'policy_guided_sst', 'rl']
+labelorder += ['gradient_descent_sst', 'policy_guided_gradient_descent_sst', 'policy_guided_sst', 'rl', 'rl_rrt', 'rl-then-sst']
 dashes = [[],[8,8],[4,4],[2,2],[1,1],[12,6],[4,2,2,2],[8,2,2,2,2,2],[6,2],[2,6]]
 ylabelmap = {"best cost":"Path length",
              "numEdgeChecks":"# edge checks",
@@ -44,11 +47,17 @@ ylabelmap = {"best cost":"Path length",
 }
 
 # ignored_labels = ['gradient_descent_sst']
-ignored_labels = ['policy_guided_sst', 'gradient_descent_sst']
+ignored_labels = []
+# ignored_labels += ['policy_guided_sst']
+ignored_labels += ['policy_guided_gradient_descent_sst']
+ignored_labels += ['stable_sparse_rrt']
+ignored_labels += ['rl']
+ignored_labels += ['rl-rrt']
+# ignored_labels += ['rl-then-sst']
 # ignored_labels = ['gradient_descent_sst', 'stable_sparse_rrt', 'rl']
 # labelmap['policy_guided_gradient_descent_sst'] = 'PSST with gradient descent'
 # labelmap['policy_guided_sst'] = 'PSST without gradient descent'
-ignored_labels = ['gradient_descent_sst']
+ignored_labels += ['gradient_descent_sst']
 
 
 

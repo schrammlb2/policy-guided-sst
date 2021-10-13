@@ -61,8 +61,8 @@ use_value_function = True
 # p_random = 0
 # p_random = .5
 # p_goal = 1
-p_random = .3
-p_goal = .4
+p_random = .2
+p_goal = .5
 mean_GD_steps = 5
 epsilon = 1/(1+mean_GD_steps)
 # agent_loc = "saved_models/her_mod_"
@@ -145,6 +145,7 @@ class FetchRobot:
             # def make_control_selector(controlSpace,metric,numSamples):
             #     return lambda x: heuristic.evaluate(x, self.goal)
                 # return RLAgentControlSelector(controlSpace,metric,numSamples, rl_agent = agent, p_goal = 0, p_random=1, goal=goal)
+            heuristic.evaluate = lambda a, b: 0
             self.control_space.heuristic = heuristic
 
     def set_value_function(self, value_function_name):

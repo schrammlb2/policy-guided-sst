@@ -1,0 +1,97 @@
+What do we know? 
+	Max entropy policy is softmax
+	max entropy policy maximizes rate at which new nodes are created
+
+	If we have belief over which actions are optimal, minimize time to sample correct one by sampling sqrt(P) = SM(1/2 E[V])
+
+	Information theory approach
+		Q( T/F | i, k) = P(i has been sampled after k pulls)
+		Rate of producing new nodes: 
+			E_P(i)[Q log Q] = Conditional entropy(P(i), Q(i,k)) 
+		Rate of progress along optimal path:
+			E_P(i | optimal)[Q log Q] = Conditional entropy(P(i | optimal), Q(i,k)) 
+
+	Maximize E_P(i | optimal)[Q log Q]
+		P(i | optimal) = c pi(i) + (1-c)
+		Max  P(i | optimal) (1 - π(i) )^(k) log ((1 - π(i) ))
+			d/dπ is const: 
+				d/dπ P(i | optimal) (1 - π(i) )^(k) log ((1 - π(i) ))
+				d/dπ P(i | optimal) - k (1 - π(i) )^(k-1) log ((1 - π(i) )) + (1 - π(i) )^(k-1)
+				= (1 - π(i) )^(k-1) (- k log(1 - π(i)) + 1) ??
+
+	Can explore optimally using softmax-MCTS approach
+		Treat as kernel bandit in space of (s U a)?
+
+		What information do we use to update? 
+			Kernel regression over cost-to-go?
+
+		Fundamental problem 
+			We have no reward structure
+			What information do we have to leverage to point us towards the goal? 
+
+
+
+
+TODO
+	Grading
+
+	CoRL responses
+
+	Make ICRA paper
+		Start uploading experimental results
+		Compare to RL-RRT 
+
+		Write as inquiry instead of method proposal? 
+
+		Experiments: 
+			Add obstacles to robotics environments? 
+
+		Hand reach
+			Can use goal-state SR instead of HER?
+
+		Write up theory stuff more formally in TeX
+
+		To get into the lab: 
+			baichuan.huang@rutgers.edu 
+			hc856@scarletmail.rutgers.edu 
+			sl1642@scarletmail.rutgers.edu
+			rw485@scarletmail.rutgers.edu
+
+	
+	Do successor rep experiment
+
+
+Experiments
+	Hand environments
+	RL-RRT comparisons
+		Relies on agent being good at point-to-point navigation, which does not work well in high-dimensional state spaces
+		Run on all problems
+
+	Evaluation paper
+		Compare to "RL then SST"
+
+	Write up theory showing that RL agent should offer an improvement
+
+
+
+Speed
+	2D with obstacles: 
+		Collision checking
+			Currently no relation between # of obstacles and speed
+			Labels every point in maze as free space or not, and then does lookup
+
+		Expensive part is raytracing
+			Observations are collection of 16 lidar beams that return distance to obstacle
+			Divides line segement up into sequence of dots, collision checks each one
+			Returns shortest collision distance
+
+			If want speedup, need to implement better raytrace that takes less time for small numbers of obstacles
+
+	Mujoco	
+		Figured out how to adjust clock speed
+		For tasks we're training on, bottleneck is network evaluation
+
+		With very low clock speeds, collision does not work reliably, making task impossible
+		With somewhat low clock speeds, no loss in transfer
+
+		Maybe need more taxing environment? 

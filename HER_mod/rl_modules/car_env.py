@@ -16,7 +16,7 @@ def is_approx(a, b):
 	return abs(a-b) < thresh
 
 class RotationEnv(gym.GoalEnv):
-	def __init__(self, vel_goal= False, shift=False):
+	def __init__(self, vel_goal= False, shift=False, shift_scale=1):
 		self.dt = .2
 		self.acc_speed = 2
 		self.rot_speed = 7
@@ -47,6 +47,7 @@ class RotationEnv(gym.GoalEnv):
 		self.threshold = .1
 		self.vel_goal = vel_goal
 		self.shift = shift
+		self.shift_scale = 1
 
 
 	def reset(self): 
@@ -92,10 +93,15 @@ class RotationEnv(gym.GoalEnv):
 
 	def step(self, action):
 		if self.shift: 
-			force_scale = 1 - .95*np.abs(self.position)
-			action = action*force_scale
+			# action = action #- np.array([-.75, -.75])*(self.shift_scale/4)
+			# force_scale = 1 #- .8*np.abs(self.position)
+			force_scale = 1 - .9**(1/self.shift_scale)*np.abs(self.position)
+			action = action*force_scale*(self.shift_scale/4)
 			# action = action - np.array([-.1, -.1])
-		
+			wind = np.array([-.75, -.75])*force_scale*(self.shift_scale/4)
+		else: 
+			wind = np.array([0, 0])
+
 		new_rotation = (self.rotation + action[1]*self.dt*self.rot_speed)%(2*math.pi)
 		# new_acceleration = np.array([action[0]*math.cos(self.rotation), action[0]*math.sin(self.rotation)]) - self.drag*self.velocity
 		# new_rotation = square_to_radian(action[1:])
@@ -106,6 +112,7 @@ class RotationEnv(gym.GoalEnv):
 		# new_velocity = np.clip(self.velocity + new_acceleration, -1, 1)
 		new_velocity = np.clip(self.velocity*(1-self.acc_speed*self.dt) + new_acceleration*self.acc_speed*self.dt, -1, 1)
 		# new_velocity = new_acceleration
+		new_velocity += wind
 		new_position = (self.position + new_velocity*self.dt + 1)%2 - 1
 
 		self.rotation = new_rotation

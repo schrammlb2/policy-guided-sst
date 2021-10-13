@@ -16,12 +16,13 @@ from pomp.example_problems import handrobot
 from pomp.spaces.objectives import *
 
 # from HER_mod.rl_modules.velocity_env import *
-from train_distance_function import *
+# from train_distance_function import *
 
 import time
 import copy
 import sys
 import os,errno
+import pdb
 
 numTrials = 50
 
@@ -46,12 +47,12 @@ def testPlannerDefault(problem,problemName,maxTime,plannerType,**plannerParams):
         # test.testPlanner(planner,numTrials,maxTime,os.path.join(folder,allplanners.filename[plannerType]+'.csv'))
 
     #Variants
-    # test.testPlanner(problem,numTrials,maxTime,os.path.join(folder,allplanners.filename[plannerType]+'.csv'), plannerType, **plannerParams)
+    test.testPlanner(problem,numTrials,maxTime,os.path.join(folder,allplanners.filename[plannerType]+'.csv'), plannerType, **plannerParams)
     # test.recordIters(problem,numTrials,maxTime,os.path.join(folder,allplanners.filename[plannerType]+'.csv'), plannerType, **plannerParams)
     # test.record_monitor(problem,numTrials,maxTime,os.path.join(folder,allplanners.filename[plannerType]+'.csv'), plannerType, problemName,  **plannerParams)
     # test.record_video_recorder(problem,numTrials,maxTime,os.path.join(folder,allplanners.filename[plannerType]+'.csv'), plannerType, problemName,  **plannerParams)
     # test.record_manual(problem,numTrials,maxTime,os.path.join(folder,allplanners.filename[plannerType]+'.csv'), plannerType, problemName,  **plannerParams)
-    test.path_visualization_obstacle(problem,numTrials,maxTime,os.path.join(folder,allplanners.filename[plannerType]+'.csv'), plannerType, problemName,  **plannerParams)
+    # test.path_visualization_obstacle(problem,numTrials,maxTime,os.path.join(folder,allplanners.filename[plannerType]+'.csv'), plannerType, problemName,  **plannerParams)
 
 # all_planners = ['ao-est','ao-rrt','r-est','r-est-prune','r-rrt','r-rrt-prune','rrt*','anytime-rrt','stable-sparse-rrt', 
 #                 'rl-rrt', 'psst', 'gdsst', 'pgdsst', 'prlsst']
@@ -75,7 +76,13 @@ all_problems = {#'Kink':geometric.kinkTest(),
                 'GymAsteroids':gym_asteroids.gymAsteroidsTest,
                 'GymAsteroidsVelGoal':gym_asteroids.gymAsteroidsVelGoalTest,
                 'GymMomentumShift':gym_momentum.gymMomentumShiftTest,
+                'GymMomentumShift2':gym_momentum.gymMomentumShiftTest2,
+                'GymMomentumShift3':gym_momentum.gymMomentumShiftTest3,
+                'GymMomentumShift4':gym_momentum.gymMomentumShiftTest4,
                 'GymAsteroidsShift':gym_asteroids.gymAsteroidsShiftTest,
+                'GymAsteroidsShift2':gym_asteroids.gymAsteroidsShiftTest,
+                'GymAsteroidsShift3':gym_asteroids.gymAsteroidsShiftTest,
+                'GymAsteroidsShift4':gym_asteroids.gymAsteroidsShiftTest,
                 'FetchReach':fetchrobot.fetchReachTest,
                 'FetchPush':fetchrobot.fetchPushTest,
                 'FetchSlide':fetchrobot.fetchSlideTest,
@@ -91,8 +98,8 @@ fetchrobotWitnessRadius = .1#01
 fetchSelectionRadius = 2*fetchrobotWitnessRadius
 fetch_time = 100
 # fetch_time = 30
-settings_2d = {'maxTime':100,'selectionRadius':0.25,'witnessRadius':0.1}
-# settings_2d = {'maxTime':30,'selectionRadius':0.1,'witnessRadius':0.05}
+# settings_2d = {'maxTime':100,'selectionRadius':0.25,'witnessRadius':0.1}
+settings_2d = {'maxTime':50,'selectionRadius':0.1,'witnessRadius':0.05}
 # settings_2d = {'maxTime':50,'selectionRadius':0.025,'witnessRadius':0.01}
 obstacle_settings = {'maxTime':100, 'edgeCheckTolerance':.1,'selectionRadius':6,'witnessRadius':3}
 
@@ -107,8 +114,14 @@ customParameters = {'Kink':{'maxTime':40,'nextStateSamplingRange':0.15},
                     'GymMomentum': settings_2d,
                     'GymMomentumVelGoal': settings_2d,
                     'GymMomentumShift':settings_2d,
+                    'GymMomentumShift2':settings_2d,
+                    'GymMomentumShift3':settings_2d,
+                    'GymMomentumShift4':settings_2d,
                     'GymAsteroids':settings_2d,
                     'GymAsteroidsShift':settings_2d,
+                    'GymAsteroidsShift2':settings_2d,
+                    'GymAsteroidsShift3':settings_2d,
+                    'GymAsteroidsShift4':settings_2d,
                     'GymObstacle2D': obstacle_settings,
                     'GymObstacle2DLidar': obstacle_settings,
                     # 'FetchReach':{'maxTime':120,'witnessRadius':fetchrobotWitnessRadius,'selectionRadius':fetchSelectionRadius},
@@ -116,9 +129,9 @@ customParameters = {'Kink':{'maxTime':40,'nextStateSamplingRange':0.15},
                     # 'FetchSlide':{'maxTime':fetch_time,'witnessRadius':fetchrobotWitnessRadius,'selectionRadius':fetchSelectionRadius},
                     # 'FetchPickAndPlace':{'maxTime':fetch_time,'witnessRadius':fetchrobotWitnessRadius,'selectionRadius':fetchSelectionRadius},
                     'FetchReach':{'maxTime':60,'witnessRadius':fetchrobotWitnessRadius,'selectionRadius':fetchSelectionRadius},
-                    'FetchPush':{'maxTime':150,'witnessRadius':fetchrobotWitnessRadius,'selectionRadius':fetchSelectionRadius},
+                    'FetchPush':{'maxTime':fetch_time,'witnessRadius':fetchrobotWitnessRadius,'selectionRadius':fetchSelectionRadius},
                     'FetchSlide':{'maxTime':fetch_time,'witnessRadius':fetchrobotWitnessRadius,'selectionRadius':fetchSelectionRadius},
-                    'FetchPickAndPlace':{'maxTime':100,'witnessRadius':fetchrobotWitnessRadius,'selectionRadius':fetchSelectionRadius},
+                    'FetchPickAndPlace':{'maxTime':fetch_time,'witnessRadius':fetchrobotWitnessRadius,'selectionRadius':fetchSelectionRadius},
                     'HandReach': {'maxTime':fetch_time},
                     'Flappy':{'maxTime':120,'edgeCheckTolerance':4,'selectionRadius':70,'witnessRadius':35},
                     'DoubleIntegrator':{'maxTime':60,'selectionRadius':0.3,'witnessRadius':0.3},

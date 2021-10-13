@@ -452,6 +452,7 @@ class RLAgentControlSelector(ControlSelector):
             #     duration = duration//3 + 1
             state = x
             env = self.controlSpace.env
+            # pdb.set_trace()
             env.set_state(env, np.array(x))
 
             if random.random() <  self.constant_extension_chance: 
@@ -475,20 +476,6 @@ class RLAgentControlSelector(ControlSelector):
             state = x
             env = self.controlSpace.env
             env.set_state(env, np.array(x))
-            # if random.random() < self.constant_extension_chance: 
-            #     action = self.p2p_agent.sample(state, xdesired)
-            #     return [action]*duration
-            # else:
-            #     sequence = []
-            #     for _ in range(duration): 
-            #         # action = self.rl_agent.sample(state, xdesired)
-            #         action = self.p2p_agent.sample(state, xdesired)
-            #         sequence.append(action)
-            #         obs = env.step(np.array(action))[0]
-            #         if self.goal_conditioned: 
-            #             state = obs['observation']
-            #         else: 
-            #             state = obs
 
             normed_goal_sample = torch.randn(len(self.goal))
             _ , goal_sample = self.rl_agent.agent._get_denorms(torch.tensor(state), normed_goal_sample)
@@ -541,12 +528,13 @@ class PPOAgentWrapper(RLAgentWrapper):
 
 
 class DDPGAgentWrapper(RLAgentWrapper):
-    def sample(self, x, goal): 
+    def sample(self, x, goal, deterministic=None): 
         x_tensor = torch.tensor(x).unsqueeze(dim=0)
+        if deterministic == None: deterministic = self.deterministic
         if self.goal_conditioned: 
             # return_value = normed_forward(self, obs, g, deterministic=False)[0].detach().tolist()
             # return_value = self.agent.normed_forward(x, goal, deterministic=True)[0].detach().tolist()
-            return_value = self.agent.normed_forward(x, goal, deterministic=self.deterministic)[0].detach().tolist()
+            return_value = self.agent.normed_forward(x, goal, deterministic=deterministic)[0].detach().tolist()
             # goal_tensor = torch.tensor(goal).unsqueeze(dim=0)
             # inpt = torch.cat((x_tensor, goal_tensor), dim=-1)
             # return_value = self.agent(inpt)[0].detach().tolist()

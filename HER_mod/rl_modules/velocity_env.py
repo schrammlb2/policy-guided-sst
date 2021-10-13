@@ -78,7 +78,7 @@ def wall_behavior(pos, vel, abc = (.3, .4, .3)):
 
 
 class MultiGoalEnvironment:
-	def __init__(self, name, num=4, time=True, vel_goal=False, epsilon=.1, shift=False):
+	def __init__(self, name, num=4, time=True, vel_goal=False, epsilon=.1, shift=False, shift_scale=1):
 		self.num=1
 		# self.pos = np.random.rand(2)*2-1
 		# self.vel = np.zeros(2)
@@ -121,6 +121,7 @@ class MultiGoalEnvironment:
 		self.reset()
 		# self.buff = deque(maxlen=REPLAY_SIZE)
 		self.shift = shift
+		self.shift_scale = shift_scale
 		
 
 	def reset(self):
@@ -232,9 +233,10 @@ class MultiGoalEnvironment:
 	def step(self, action, test = False):
 		act = np.clip(action, -1, 1).squeeze()
 		if self.shift: 
-			act = act - np.array([-.3]*2)
-			force_scale = 1 - .95*np.abs(self.pos)
-			act = act*force_scale 
+			# act = act - np.array([-.3, -.3])
+			act = act - np.array([-.75, -.75])*(self.shift_scale/4)
+			force_scale = 1 - .9**(1/self.shift_scale)*np.abs(self.pos)
+			# act = act*force_scale*(self.shift_scale/4)
 		# force = (act - (self.vel/self.max_vel))
 		# force = (act - (self.vel/self.max_vel)*(.1 + .9*((self.vel/self.max_vel)**2).sum()**.5/(2**.5)))
 		force = act

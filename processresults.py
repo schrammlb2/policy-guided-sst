@@ -106,7 +106,7 @@ def parse_data(csvfn):
                     failures = len(success_list) - successes
                     successRate = np.mean(success_list)
                     res['success fraction'].append(successRate)
-                    res['success fraction ci'].append(list(bayes_interval(successes, failures, z=.95)) + [successRate])
+                    res['success fraction ci'].append(list(bayes_interval(successes, failures, z=.90)) + [successRate])
                 if k in meanvars:
                     if len(cleandata) > 0:
                         res[k].append(np.mean(cleandata))

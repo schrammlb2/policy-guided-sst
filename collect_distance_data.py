@@ -19,6 +19,11 @@ from pomp.example_problems.robotics.fetch.slide import FetchSlideEnv
 from pomp.example_problems.robotics.fetch.pick_and_place import FetchPickAndPlaceEnv
 from HER_mod.rl_modules.velocity_env import MultiGoalEnvironment, CarEnvironment
 
+from pomp.example_problems.robotics.hand.reach import HandReachEnv
+
+# from gym_extensions.continuous.gym_navigation_2d.env_generator import Environment, EnvironmentCollection, Obstacle
+from gym_extensions.continuous.gym_navigation_2d.env_generator import Environment#, EnvironmentCollection, Obstacle
+
 num_episodes = 5000
 epochs = 500
 
@@ -63,6 +68,8 @@ def make_env(args):
         env = TimeLimit(FetchSlideEnv(), max_episode_steps=50)
     elif "FetchPickAndPlace" in args.env_name:
         env = TimeLimit(FetchPickAndPlaceEnv(), max_episode_steps=50)
+    elif args.env_name == "HandReach":
+        env = TimeLimit(HandReachEnv(), max_episode_steps=10)
     else:
         env = gym.make(args.env_name)
 

@@ -224,7 +224,7 @@ class ddpg_agent:
             # do the normalization
             # concatenate the stuffs
             actions_next, log_prob_next = self.actor_target_network(inputs_next_norm_tensor, with_logprob = True)
-            q_next_value = self.critic_target_network(inputs_next_norm_tensor, actions_next) + self.args.entropy_regularization*log_prob_next 
+            q_next_value = self.critic_target_network(inputs_next_norm_tensor, actions_next) - self.args.entropy_regularization*log_prob_next 
             q_next_value = q_next_value.detach()
             target_q_value = r_tensor + self.args.gamma * q_next_value #* (-r_tensor) 
             target_q_value = target_q_value.detach()
@@ -238,7 +238,7 @@ class ddpg_agent:
         critic_loss = (target_q_value - real_q_1).pow(2).mean() + (target_q_value - real_q_2).pow(2).mean()
         # the actor loss
         actions_real, log_prob = self.actor_network(inputs_norm_tensor, with_logprob = True)
-        actor_loss = -self.critic_network(inputs_norm_tensor, actions_real).mean() + self.args.entropy_regularization*log_prob.mean()
+        actor_loss = -self.critic_network(inputs_norm_tensor, actions_real).mean() - self.args.entropy_regularization*log_prob.mean()
         actor_loss += self.args.action_l2 * (actions_real / self.env_params['action_max']).pow(2).mean()
 
         # actions_ag, log_prob = self.actor_network(inputs_goal_tensor, with_logprob = True)

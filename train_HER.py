@@ -117,13 +117,16 @@ if __name__ == '__main__':
         #     from HER.rl_modules.fetch_specific_p2p import ddpg_agent
         # else: 
         #     from HER.rl_modules.p2p_agent import ddpg_agent
-        from HER.rl_modules.tdm_p2p import ddpg_agent
+        from HER.rl_modules.p2p_agent import ddpg_agent
+        # from HER.rl_modules.tdm_p2p import ddpg_agent
         suffix = "_p2p"
     else: 
         from HER.rl_modules.sac_agent import ddpg_agent
+        # from HER.rl_modules.heuristic_difference_sac_agent import ddpg_agent
         # from HER.rl_modules.value_prior_agent import ddpg_agent
         # from HER.rl_modules.ddpg_agent import ddpg_agent
-        # from HER.rl_modules.ddpg_original import ddpg_agent
+        print("Using the model from the transferred section")
+        # from HER_RFF_SF.rl_modules.ddpg_original import ddpg_agent
         # from HER.rl_modules.tdm_agent import ddpg_agent
         # from HER.rl_modules.tdm_ddpg_agent import ddpg_agent
         suffix = ""
